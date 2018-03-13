@@ -1,0 +1,3 @@
+
+g++ -fpic -c dconv.cc -o dconv.o
+g++ -shared -o dconv.so dconv.o
