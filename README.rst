@@ -22,9 +22,9 @@ May be used as a drop in replacement for most other JSON parsers for Python:
     >>> mrjson.loads("""[{"key": "value"}, 81, true]""")
     [{'key': 'value'}, 81, True]
 
-~~~~~~~~~~~~~~~
+===============
 Encoder options
-~~~~~~~~~~~~~~~
+===============
 ensure_ascii
 -------------
 Note that this defaults to true in the base json module, but now defaults to false for space and performance reasons. When true the output is ASCII with unicode characters embedded as \uXXXX and when false the output is a UTF-8 unicode string.
