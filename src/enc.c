@@ -1,7 +1,6 @@
 
 #include "py_defines.h"
 #include <stdio.h>
-#include <ultrajson.h>
 #include "dconv.h"
 
 #define IS_NAN(x) Py_IS_NAN(x)

@@ -1,6 +1,9 @@
 
 #include "py_defines.h"
 
+#define STRINGIFY(x) XSTRINGIFY(x)
+#define XSTRINGIFY(x) #x
+
 PyObject* toJson    (PyObject* self, PyObject *args, PyObject *kwargs);
 PyObject* toJsonFile(PyObject* self, PyObject *args, PyObject *kwargs);
 
@@ -59,8 +62,7 @@ PYMODINITFUNC
 
   if (m == NULL) { MODINITERROR; }
 
-  v = PyString_FromString (MRJSON_VERSION);
-  PyModule_AddObject (m, "__version__", v);
+  PyModule_AddStringConstant(m, "__version__", STRINGIFY(MRJSON_VERSION));
   PyModule_AddStringConstant(m, "__author__", "Mark Reed <mark@untilfluent.com>");
 #if PY_MAJOR_VERSION >= 3
   return m;

@@ -30,7 +30,7 @@ class build_clib_without_warnings(build_clib):
 
         build_clib.build_libraries(self, libraries)
 
-with open('README.rst', encoding='utf-8') as f:
+with open('README.md', encoding='utf-8') as f:
     README = f.read()
 
 with open('version.txt', encoding='utf-8') as f:
@@ -46,7 +46,7 @@ module1 = Extension(
      include_dirs = ['./src'],
      extra_compile_args = ['-D_GNU_SOURCE','-mavx2'],
      extra_link_args = ['-lstdc++', '-lm'],
-    'define_macros': [('MRJSON_VERSION', VERSION)]
+     define_macros = [('MRJSON_VERSION', VERSION)]
 )
 
 
