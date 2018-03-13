@@ -32,6 +32,7 @@ Run bench.py to test MrJSON against some other modules. Feel free to make a pull
 
 ### Decoding JSON
 
+```
 Test chatt1r.json loads
    6.73860777169466e-05      json
    7.03359255567193e-05      simplejson
@@ -79,6 +80,7 @@ Test twitter.json loads
    0.005504615022800863      ujson
    0.005361802992410958      u2json
    0.005703269969671965      mrjson
+```
 
 ### Encoding JSON
 
