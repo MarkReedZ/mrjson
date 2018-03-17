@@ -34,6 +34,10 @@ I created MrJSON to run against long string data. This file str128.json contains
 
 ![str128](bench/png/str128.png)
 
+testing
+
+<img src="bench/png/str128.png" width="200" />
+
 ```
 Test chatt1r.json loads
    6.73860777169466e-05      json
