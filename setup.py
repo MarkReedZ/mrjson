@@ -58,6 +58,7 @@ setup(
     description = "JSON encoder and decoder for Python",
     keywords='json mrjson',
     long_description = README,
+    long_description_content_type='text/markdown',
     libraries = [libdconv],
     ext_modules = [module1],
     author="Mark Reed",
@@ -67,7 +68,7 @@ setup(
     url="https://github.com/UntilFluent/MrJSON",
     cmdclass = {'build_ext': build_ext, 'build_clib': build_clib_without_warnings},
     classifiers=[
-        'Development Status :: 5 - Production/Stable'
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: C',
