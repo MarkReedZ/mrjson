@@ -36,7 +36,7 @@ I created MrJSON to run against long string data. This file str128.json contains
 
 testing
 
-<img src="bench/png/str128.png" width="200" />
+<img src="bench/png/str128.png" width="40%" />
 
 ```
 Test chatt1r.json loads
