@@ -9,17 +9,15 @@ f.close()
 obj = json.loads(s)
 '''
 mods = ["json", "simplejson", "rapidjson", "ujson", "mrjson"]
-tsts = ["str128.json"]
-#tsts = ["str128.json", "chatt1r.json", "good-twitter.json","canada.json", "citm_catalog.json", "twitter.json"]
+tsts = ["str128.json", "canada.json", "citm_catalog.json", "twitter.json", "twit.json"]
+#tsts = ["str128.json", "twit.json", "chatt1r.json", tter.json","canada.json", "citm_catalog.json", "twitter.json"]
 #for z in ["ujson", "rapidjson", "mrjson", "u2json"]:
 for tst in tsts:
-#for tst in ["twit.json", "good-twitter.json","canada.json", "citm_catalog.json", "str128.json", "twitter.json"]:
   print ("Test",tst,"loads")
   for mod in mods:
     setup2 = setup.replace("ZZZ",mod).replace("YYY",tst)
     #print (min(timeit.Timer('json.dumps(z)', setup=setup2).repeat(10, 1)))
     print ("  ",(min(timeit.Timer(mod+'.loads(s)', setup=setup2).repeat(100, 1))), "  \t", mod)
-#for tst in ["twit.json", "good-twitter.json","canada.json", "citm_catalog.json", "str128.json", "twitter.json"]:
 for tst in tsts:
   print ("Test",tst,"dumps")
   for mod in mods:
