@@ -62,9 +62,9 @@ setup(
     ext_modules = [module1],
     author="Mark Reed",
     author_email="mark@untilfluent.com",
-    download_url="http://github.com/esnme/ultrajson",
+    download_url="https://github.com/UntilFluent/MrJSON/archive/1.0.tar.gz",
     platforms=['any'],
-    url="http://www.esn.me",
+    url="https://github.com/UntilFluent/MrJSON",
     cmdclass = {'build_ext': build_ext, 'build_clib': build_clib_without_warnings},
     classifiers=[
         'Development Status :: 5 - Production/Stable'
