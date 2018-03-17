@@ -66,8 +66,8 @@ static int doStringNoEscapes (Encoder *e, const char *str, const char *end)
 {
   char *of = e->s;
   if ( (end-str) == 0 ) printf("passed 0 len string?\n");
-  //printf("%d\n", end-str);
-  //printf("%.*s\n", end-str, str);
+  printf("%d\n", end-str);
+  printf("%.*s\n", end-str, str);
 
   for (;;)
   {
@@ -199,10 +199,26 @@ int encode( PyObject *o, Encoder *e ) {
     reverse( e->s, s-1 );
     e->s += s - e->s;
   }
+#if PY_MAJOR_VERSION < 3
+  else if ( PyInt_Check(o) ) {
+    char *s = e->s;
+    int overflow;
+    long i = PyInt_AS_LONG(o);
+    do *s++ = (char)(48 + (i % 10ULL)); while(i /= 10ULL);
+    if (i < 0) *s++ = '-';
+    reverse( e->s, s-1 );
+    e->s += s - e->s;
+  }
+#endif
   else if (PyUnicode_Check(o)) {
     *(e->s++) = '\"';
     Py_ssize_t l;
+#if PY_MAJOR_VERSION >= 3
     const char* s = PyUnicode_AsUTF8AndSize(o, &l);
+#else
+    const char* s = PyUnicode_AsUTF8String(o);
+    l = PyUnicode_GET_SIZE(o);
+#endif
     if (s == NULL) return 0; //ERR
     //printf("str len %d\n", l);
     //if ( l == 0 ) printf("%.*s\n", 32, (e->s-32));
@@ -217,6 +233,25 @@ int encode( PyObject *o, Encoder *e ) {
     }
     *(e->s++) = '\"';
   }
+#if PY_MAJOR_VERSION < 3
+  else if (PyString_Check(o)) {
+    *(e->s++) = '\"';
+    Py_ssize_t l;
+    const char* s = PyString_AS_STRING(o);
+    l = PyString_GET_SIZE(o);
+    if (s == NULL) return 0; //ERR
+    if ( l <= 0 || l > UINT_MAX ) {
+      if ( l != 0 ) {
+        PyErr_SetString(PyExc_TypeError, "Bad string length");
+        return 0;
+      }
+    } else {
+      resizeBufferIfNeeded(e,l); // TODO error if buf not allocated
+      doStringNoEscapes(e, s, s+l);
+    }
+    *(e->s++) = '\"';
+  }
+#endif
   else if (PyList_Check(o)) {
     *(e->s++) = '[';
     Py_ssize_t size = PyList_GET_SIZE(o);
@@ -266,7 +301,12 @@ int encode( PyObject *o, Encoder *e ) {
       while (PyDict_Next(o, &pos, &key, &item)) {
         if (PyUnicode_Check(key)) {
           Py_ssize_t l;
+#if PY_MAJOR_VERSION >= 3
           const char* key_str = PyUnicode_AsUTF8AndSize(key, &l);
+#else
+          const char* key_str = PyUnicode_AsUTF8String(key);
+          l = PyUnicode_GET_SIZE(key);
+#endif
           if (key_str == NULL) return 0;
           //printf("key len %d\n", l);
           if ( l <= 0 || l > UINT_MAX ) {
@@ -284,6 +324,29 @@ int encode( PyObject *o, Encoder *e ) {
           if (!r) return 0;
           *(e->s++) = ',';
         }
+#if PY_MAJOR_VERSION < 3
+        else if (PyString_Check(key)) {
+          Py_ssize_t l;
+          const char* key_str = PyString_AS_STRING(key);
+          l = PyString_GET_SIZE(key);
+          if (key_str == NULL) return 0;
+          //printf("key len %d\n", l);
+          if ( l <= 0 || l > UINT_MAX ) {
+            PyErr_SetString(PyExc_TypeError, "Bad key string length");
+            return 0;
+          }
+          resizeBufferIfNeeded(e,l);
+          *(e->s++) = '\"';
+          doStringNoEscapes(e, key_str, key_str+l);
+          *(e->s++) = '\"';
+          *(e->s++) = ':';
+          if (Py_EnterRecursiveCall(" while JSONifying dict object")) return 0;
+          int r = encode(item, e);
+          Py_LeaveRecursiveCall();
+          if (!r) return 0;
+          *(e->s++) = ',';
+        }
+#endif
         else if (!e->skipKeys) {
           PyErr_SetString(PyExc_TypeError, "keys must be strings");
           return 0;
@@ -298,7 +361,9 @@ int encode( PyObject *o, Encoder *e ) {
   }
   else {
     printf("Unknown type!?\n");
-    PyErr_Format(PyExc_TypeError, "%R is not JSON serializable", o);
+    PyObject* objectsRepresentation = PyObject_Repr(o);
+    const char* msg = PyString_AsString(objectsRepresentation);
+    PyErr_Format(PyExc_TypeError, "%s is not JSON serializable", msg);
     return 0;
   }
   return 1;

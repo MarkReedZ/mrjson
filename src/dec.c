@@ -570,7 +570,11 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
           *(s+slen) = 0;
           //printf("%s\n", s);
           //o = PyUnicode_FromStringAndSize(s, slen);
+#if PY_MAJOR_VERSION >= 3
           o = PyUnicode_FromKindAndData(PyUnicode_1BYTE_KIND, s, slen);
+#else
+          o = PyUnicode_FromStringAndSize(s, slen);
+#endif
           //printf("%s\n", s);
           s += slen+1;
           //stringLen += slen;
