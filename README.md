@@ -28,7 +28,7 @@ Note that this defaults to true in the base json module, but now defaults to fal
 
 ## Benchmarks		
 
-Run bench.py to test MrJSON against some other modules - add your own json files and test on your own machine. MrJSON does particularly well with long strings and floating point data. 
+Run bench.py to test MrJSON against some other modules - test your own files on your own machine as results can vary significantly. MrJSON does particularly well decoding long strings and floating point numbers thanks to intel's AVX2 instructions and [Milo Yup at Tencent](https://github.com/Tencent/rapidjson) for publishing C++ code implementing Florian Loitsch's float to string algorithm. 
 
 #### Loads
 
@@ -36,7 +36,7 @@ Only 128 byte long strings.
 
 <img src="bench/png/str128-2.png" width="40%" />
 
-Mostly floating point numbers - canada.json from [The Native JSON Benchmark](https://github.com/miloyip/nativejson-benchmark)
+Mostly floating point numbers - canada.json from [The Native JSON Benchmark](https://github.com/miloyip/nativejson-benchmark), the fastest C++ JSON parser comes in at 7.9 milliseconds on this machine for comparison
 
 <img src="bench/png/canada-loads.png" width="40%" />
 
