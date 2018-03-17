@@ -32,7 +32,7 @@ Run bench.py to test MrJSON against some other modules - add your own json files
 
 str128.json contains only 128 byte long strings
 
-<img src="bench/png/str128.png" width="40%" />
+<img src="bench/png/str128.png?1" width="40%" />
 
 
 
