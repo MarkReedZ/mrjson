@@ -8,7 +8,7 @@ from distutils.command.build_clib import build_clib
 from distutils.command.build_ext import build_ext
 import os.path
 import re
-import sys
+import sys, codecs
 
 libdconv = (
     'dconv',
@@ -30,11 +30,11 @@ class build_clib_without_warnings(build_clib):
 
         build_clib.build_libraries(self, libraries)
 
-with open('README.md', encoding='utf-8') as f:
+with codecs.open('README.md', encoding='utf-8') as f:
     README = f.read()
 
-with open('version.txt', encoding='utf-8') as f:
-    VERSION = f.read()
+with codecs.open('version.txt', encoding='utf-8') as f:
+    VERSION = f.read().strip()
 
 module1 = Extension(
     'mrjson',
