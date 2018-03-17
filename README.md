@@ -28,9 +28,11 @@ Note that this defaults to true in the base json module, but now defaults to fal
 
 ## Benchmarks		
 
-Run bench.py to test MrJSON against some other modules. Feel free to make a pull request to include anything else interesting.  
+Run bench.py to test MrJSON against some other modules - add your own json files and test on your own machine. 
 
-### Decoding JSON
+I created MrJSON to run against long string data. This file str128.json contains 128 byte strings only.  
+
+![str128](bench/png/str128.png)
 
 ```
 Test chatt1r.json loads
