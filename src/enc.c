@@ -348,7 +348,7 @@ int encode( PyObject *o, Encoder *e ) {
         }
 #endif
         else if (!e->skipKeys) {
-          PyErr_SetString(PyExc_TypeError, "keys must be strings");
+          PyErr_SetString(PyExc_TypeError, "keys must be strings unless skipkeys is true");
           return 0;
         }
       }
@@ -385,7 +385,7 @@ int do_encode(PyObject *o, Encoder *enc ) {
 }
 
 PyObject* toJson(PyObject* self, PyObject *args, PyObject *kwargs) {
-  static char *kwlist[] = { "obj", "ensure_ascii", "sort_keys", "indent", NULL };
+  static char *kwlist[] = { "obj", "ensure_ascii", "sort_keys", "indent", "skipkeys", NULL };
 
   PyObject *oinput = NULL;
   PyObject *oensureAscii = NULL;
@@ -393,13 +393,15 @@ PyObject* toJson(PyObject* self, PyObject *args, PyObject *kwargs) {
   //PyObject *oescapeForwardSlashes = NULL;
   PyObject *osortKeys = NULL;
   PyObject* oindent = NULL;
+  PyObject* oskipkeys = NULL;
 
   Encoder enc = { NULL,NULL,NULL,0,0,0,0,0 };
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOO", kwlist, &oinput, &oensureAscii, &osortKeys, &oindent)) return NULL;
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOO", kwlist, &oinput, &oensureAscii, &osortKeys, &oindent, &oskipkeys)) return NULL;
 
   if (oensureAscii != NULL && !PyObject_IsTrue(oensureAscii)) enc.ensure_ascii = 0;
   if (osortKeys != NULL && PyObject_IsTrue(osortKeys)) enc.sortKeys = 1;
+  if (oskipkeys != NULL && PyObject_IsTrue(oskipkeys)) enc.skipKeys = 1;
   if (oindent == NULL ) {
     enc.indent = -1;
   } else {
