@@ -66,8 +66,8 @@ static int doStringNoEscapes (Encoder *e, const char *str, const char *end)
 {
   char *of = e->s;
   if ( (end-str) == 0 ) printf("passed 0 len string?\n");
-  printf("%d\n", end-str);
-  printf("%.*s\n", end-str, str);
+  //printf("%d\n", end-str);
+  //printf("%.*s\n", end-str, str);
 
   for (;;)
   {
@@ -362,7 +362,13 @@ int encode( PyObject *o, Encoder *e ) {
   else {
     printf("Unknown type!?\n");
     PyObject* objectsRepresentation = PyObject_Repr(o);
-    const char* msg = PyString_AsString(objectsRepresentation);
+    const char* msg;
+#if PY_MAJOR_VERSION >= 3
+    size_t sz;
+    msg = PyUnicode_AsUTF8AndSize(objectsRepresentation, &sz);
+#else
+    msg  = PyString_AsString(objectsRepresentation);
+#endif
     PyErr_Format(PyExc_TypeError, "%s is not JSON serializable", msg);
     return 0;
   }

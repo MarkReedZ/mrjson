@@ -34,6 +34,17 @@ static inline int char2int(char c) {
     return (c & ~' ') - 'A' + 10;
 }
 
+/* TODO
+while ((c = *(s++)) != '\r') {
+        dec = c - '0';
+        if (dec >= 0 && dec < 10) {
+            v *= 10;
+            v += dec;
+        } else {
+            return -1;
+        }
+    }
+*/
 // Reads a number from s and sets outptr to the character following the number
 static PyObject* parseNumber(char *s, char **outptr) {
   bool flt = false;
@@ -546,7 +557,7 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
         bmOff = off/64;
         tz = 64;
         slen = 0;
-        while ( 1 ) {
+        while ( 1 ) { // TODO FIX infinite loop
           qbm    = quoteBitMap[ bmOff ];
           skipbm = nonAsciiBitMap[ bmOff ];
           //printf(" bm %016lu\n", bm );

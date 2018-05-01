@@ -3,13 +3,13 @@ import timeit, codecs
 setup = u'''
 import codecs, json
 import ZZZ
-f = codecs.open( "json/YYY", "rb", encoding="utf-8")
+f = codecs.open( "bench/json/YYY", "rb", encoding="utf-8")
 s = f.read()
 f.close()
 obj = json.loads(s)
 '''
 mods = ["json", "simplejson", "rapidjson", "ujson", "mrjson"]
-tsts = ["str128.json", "canada.json", "citm_catalog.json", "twitter.json", "twit.json"]
+tsts = ["str128.json", "canada.json", "twit.json", "twitter.json", "citm_catalog.json"]
 #tsts = ["str128.json", "twit.json", "chatt1r.json", tter.json","canada.json", "citm_catalog.json", "twitter.json"]
 #for z in ["ujson", "rapidjson", "mrjson", "u2json"]:
 for tst in tsts:
