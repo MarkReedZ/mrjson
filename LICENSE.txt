@@ -1,7 +1,7 @@
 
 MrJSON is Copyright (C) 2018 UntilFluent, and Mark Reed.  All rights reserved.
 
-Idea thanks to CloudFlare's Vlad Krasnov.
+Idea thanks to CloudFlare's Vlad Krasnov
 https://blog.cloudflare.com/improving-picohttpparser-further-with-avx2/
 
 Float handling cribbed from rapidson
