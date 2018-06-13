@@ -10,8 +10,6 @@
 #define JSON_ZONE_SIZE 4096
 #define JSON_STACK_SIZE 32
 
-//int numStrings, numEscaped, stringLen;
-
 static inline bool _isspace(char c) {
     return (bool)(c == ' ') || (c >= '\t' && c <= '\r');
 }
@@ -34,72 +32,39 @@ static inline int char2int(char c) {
     return (c & ~' ') - 'A' + 10;
 }
 
-/* TODO
-while ((c = *(s++)) != '\r') {
-        dec = c - '0';
-        if (dec >= 0 && dec < 10) {
-            v *= 10;
-            v += dec;
-        } else {
-            return -1;
-        }
-    }
-*/
 // Reads a number from s and sets outptr to the character following the number
 static PyObject* parseNumber(char *s, char **outptr) {
   bool flt = false;
   char *st = s;
   char ch = *s;
-  //printf("parseNumber %.*s\n", 16, st);
   if (ch == '-') ++s;
 
   long l = 0;
   double d;
   int cnt = 16;
   while (_isdigit(*s) && (--cnt != 0)) l = (l * 10) + (*s++ - '0');
-  //printf("cnt %d\n",cnt);
-  //printf("YAY >%c<\n",*s);
   if ( cnt != 0 && *s != '.' && *s != 'e' && *s != 'E' ) {
     *outptr = s;
     return PyLong_FromLong(ch == '-' ? -l : l);
   }
-  //printf("%c\n",*s);
-  //int dlen;
-  //d = dconv_s2d(st, 100, &dlen);
-  //printf("dbl %f\n",d);
-  //s = st + dlen;
-  //*endptr = s;
-  //return PyFloat_FromDouble(d);
 
   d = (double) l;
   while (_isdigit(*s)) d = (d * 10) + (*s++ - '0');
 
   if (*s == '.') {
-    //printf("parseNumber %.*s\n", 32, st);
     flt = true;
     ++s;
     long frac = 0;
     long prec = 1;
     while (_isdigit(*s)) {
       frac =  (frac*10) + (*s++-'0');
-      //fraction /= 10;
-      //printf("%f\n", fraction);
-      //printf("%f\n", (*s-'0')*fraction);
-      //d += (*s++ - '0') * fraction;
-      //printf("%f\n", d);
       prec *= 10;
     }
-    //long tmp = (long)(d*prec);
-    //printf("tmp %d\n", tmp);
-    //d = (double)tmp/(prec);
-    //printf("%f\n", d);
     d += ((double)frac/prec);
-    //printf("%f\n", d);
   }
 
   if (*s == 'e' || *s == 'E') {
     flt = true;
-    ++s;
     ++s;
 
     double base = 10;
@@ -120,7 +85,6 @@ static PyObject* parseNumber(char *s, char **outptr) {
     d *= power;
   }
 
-  //printf("end >%c<\n",*s);
   *outptr = s;
   if ( flt ) return PyFloat_FromDouble(ch == '-' ? -d : d);
   else {
@@ -129,7 +93,6 @@ static PyObject* parseNumber(char *s, char **outptr) {
     PyObject *ret = PyLong_FromString(st, NULL, 10);
     *s = ch;
     return ret;
-    //return PyLong_FromDouble (ch == '-' ? -d : d);
   }
 }
 
@@ -144,7 +107,6 @@ static unsigned long TZCNT(unsigned long long in) {
 static JSOBJ SetError(const char *message)
 {
   PyErr_Format (PyExc_ValueError, "%s", message);
-  //printf("%s\n", message);
   return NULL;
 }
 
@@ -196,35 +158,33 @@ JSOBJ jsonParse(char *s, char **endptr, size_t len) {
       case '8':
       case '9':
         o = parseNumber(*endptr, &s);
-        //o = PyFloat_FromDouble(string2double(*endptr, &s));
         if (!isdelim(*s)) {
           *endptr = s;
           return SetError("JSON_BAD_NUMBER;");
         }
-        //printf("end >%c<\n", *s);
         break;
       case ']':
-        if (pos == -1) return SetError("JSON_STACK_UNDERFLOW;");
+        if (pos == -1) return SetError("JSON_STACK_UNDERFLOW");
         if (tags[pos] != JSON_ARRAY) return SetError("JSON_MISMATCH_BRACKET;");
         o = tails[pos];
         pos--;
         break;
       case '[':
-        if (++pos == JSON_STACK_SIZE) return SetError("JSON_STACK_OVERFLOW;");
+        if (++pos == JSON_STACK_SIZE) return SetError("JSON_STACK_OVERFLOW");
         tails[pos] = PyList_New(0);
         tags[pos]  = JSON_ARRAY;
         keys[pos]  = NULL;
         separator  = true;
         continue;
       case '}':
-        if (pos == -1) return SetError("JSON_STACK_UNDERFLOW;");
+        if (pos == -1) return SetError("JSON_STACK_UNDERFLOW");
         if (tags[pos] != JSON_OBJECT) return SetError("JSON_MISMATCH_BRACKET;");
         if (keys[pos] != NULL) return SetError("JSON_UNEXPECTED_CHARACTER}");
         o = tails[pos];
         pos--;
         break;
       case '{':
-        if (++pos == JSON_STACK_SIZE) return SetError("JSON_STACK_OVERFLOW;");
+        if (++pos == JSON_STACK_SIZE) return SetError("JSON_STACK_OVERFLOW");
         tails[pos] = PyDict_New();
         tags[pos] = JSON_OBJECT;
         keys[pos] = NULL;
@@ -235,18 +195,11 @@ JSOBJ jsonParse(char *s, char **endptr, size_t len) {
         separator = true;
         continue;
       case '"':
-        //o = JsonValue(JSON_STRING, s);
         string_start = s;
         for (char *it = s; *s; ++it, ++s) {
             int c = *it = *s;
-            //printf("%c\n",c);
             if (c == '\\') {
-                //*(s+32) = 0;
-                //printf(">%s<\n",s);
-                //printf("backslash\n");
-                //printf(">%c<\n",*s);
                 c = *++s;
-                //printf("%d\n",c);
                 switch (c) {
                 case '\\':
                 case '"':
@@ -271,14 +224,9 @@ JSOBJ jsonParse(char *s, char **endptr, size_t len) {
                 case 'u':
                    c = 0;
                     // \ud8XX\udcXX
-                    //printf("UUU %c %c \n",s[1],s[2]);
                     if ( s[1] == 'd' && s[2] == '8' ) {
                       unsigned long tmp = (char2int(s[8])<<8 | char2int(s[9])<<4 | char2int(s[10])) - 0xC00;
                       unsigned long wc = 0x10000 | char2int(s[3])<<14 | char2int(s[4])<<10 | tmp;
-                      //printf("YAY 0x%02x\n",( 0xf0 | (wc >> 18) ));
-                      //printf("YAY 0x%02x\n",( 0x80 | ((wc >> 12) & 0x3f) ));
-                      //printf("YAY 0x%02x\n",( 0x80 | ((wc >> 6) & 0x3f) ));
-                      //printf("YAY 0x%02x\n",( 0x80 | (wc & 0x3f) ));
                       *it++ = ( 0xf0 | (wc >> 18) );
                       *it++ = ( 0x80 | ((wc >> 12) & 0x3f) );
                       *it++ = ( 0x80 | ((wc >> 6) & 0x3f) );
@@ -291,7 +239,7 @@ JSOBJ jsonParse(char *s, char **endptr, size_t len) {
                             c = c * 16 + char2int(*s);
                         } else {
                             *endptr = s;
-                            return SetError("JSON_BAD_STRING;");
+                            return SetError("JSON_BAD_STRING");
                         }
                     }
                     if (c < 0x80) {
@@ -308,40 +256,42 @@ JSOBJ jsonParse(char *s, char **endptr, size_t len) {
 
                 default:
                     *endptr = s;
-                    return SetError("JSON_BAD_STRING;");
+                    return SetError("JSON_BAD_STRING");
                 }
             } else if ((unsigned int)c < ' ' || c == '\x7F') {
               *endptr = s;
-              return SetError("JSON_BAD_STRING;");
+              return SetError("JSON_BAD_STRING");
             } else if (c == '"') {
               *it = 0;
-              //printf("%s\n", string_start);
               o = PyUnicode_FromStringAndSize(string_start, (it - string_start));
-              //o = PyBytes_FromString(string_start);
-              //printf("%s\n", string_start);
               ++s;
               break;
             }
         }
         if (!isdelim(*s)) {
             *endptr = s;
-            return SetError("JSON_BAD_STRING;");
+            return SetError("JSON_BAD_STRING");
         }
         break;
       case 't':
-        if (!(s[0] == 'r' && s[1] == 'u' && s[2] == 'e' && isdelim(s[3]))) return SetError("JSON_BAD_IDENTIFIER;");
+        if (!(s[0] == 'r' && s[1] == 'u' && s[2] == 'e' && isdelim(s[3]))) return SetError("JSON_BAD_IDENTIFIER");
         o = newTrue();
         s += 3;
         break;
       case 'f':
-        if (!(s[0] == 'a' && s[1] == 'l' && s[2] == 's' && s[3] == 'e' && isdelim(s[4]))) SetError("return JSON_BAD_IDENTIFIER;");
+        if (!(s[0] == 'a' && s[1] == 'l' && s[2] == 's' && s[3] == 'e' && isdelim(s[4]))) SetError("return JSON_BAD_IDENTIFIER");
         o = newFalse();
         s += 4;
         break;
       case 'n':
-        if (!(s[0] == 'u' && s[1] == 'l' && s[2] == 'l' && isdelim(s[3]))) return SetError("JSON_BAD_IDENTIFIER;");
+        if (!(s[0] == 'u' && s[1] == 'l' && s[2] == 'l' && isdelim(s[3]))) return SetError("JSON_BAD_IDENTIFIER");
         o = newNull();
         s += 3;
+        break;
+      case 'N':
+        if (!(s[0] == 'a' && s[1] == 'N' && isdelim(s[3]))) return SetError("JSON_BAD_IDENTIFIER");
+        o = PyFloat_FromDouble(Py_NAN);
+        s += 2;
         break;
       case ',':
         if (separator || keys[pos] != NULL) return SetError("JSON_UNEXPECTED_CHARACTER,");
@@ -351,7 +301,7 @@ JSOBJ jsonParse(char *s, char **endptr, size_t len) {
         continue;
       default:
         //printf("end >%c<\n", *s);
-        return SetError("JSON_UNEXPECTED_CHARACTER;");
+        return SetError("JSON_UNEXPECTED_CHARACTER");
     }
     separator = false;
     if (pos == -1) {
@@ -364,9 +314,7 @@ JSOBJ jsonParse(char *s, char **endptr, size_t len) {
         keys[pos] = o; //PyUnicode_FromStringAndSize (start, (end - start));
         continue;
       }
-      //printf("setitem BEF\n");
       PyDict_SetItem (tails[pos], keys[pos], o);
-      //printf("setitem BEF\n");
       Py_DECREF( (PyObject *) keys[pos]);
       Py_DECREF( (PyObject *) o);
       keys[pos] = NULL;
@@ -403,10 +351,8 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
   const __m256i rrq    = _mm256_set1_epi8(0x22);
   const __m256i rr0    = _mm256_set1_epi8(0);
   const __m256i rr_esc = _mm256_set1_epi8(0x5C);
-  //printf("bmidx %d",bmidx);
   while( buf < end ) {
     if((dist = end - buf) < 128) {
-      //memcpy(tmpbuf, buf + (dist & (-32)), dist & 31);
       for (i=0; i < (dist & 31); i++) tmpbuf[i] = buf[ (dist & (-32)) + i];
       if (dist >= 96) {
         b0 = _mm256_loadu_si256((__m256i *)(buf + 32*0));
@@ -458,8 +404,6 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
     r3 = _mm256_movemask_epi8(q3);
     quoteBitMap[bmidx]   = r0 ^ ((unsigned long)r1 << 32);
     quoteBitMap[bmidx+1] = r2 ^ ((unsigned long)r3 << 32);   
-    //quoteBitMap.push_back( r0 ^ ((unsigned long)r1 << 32));
-    //quoteBitMap.push_back( r2 ^ ((unsigned long)r3 << 32));   
 
     __m256i is0_or_esc0 = _mm256_or_si256(_mm256_cmpeq_epi8(rr0, b0),_mm256_cmpeq_epi8(rr_esc, b0));
     __m256i is0_or_esc1 = _mm256_or_si256(_mm256_cmpeq_epi8(rr0, b1),_mm256_cmpeq_epi8(rr_esc, b1));
@@ -486,7 +430,6 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
   unsigned long qbm, skipbm, skiptz, tz;
   int slen;
   while (*s) {
-    //printf("%.*s\n", 32, s);
     while (_isspace(*s)) {
       ++s;
       if (!*s) break;
@@ -509,37 +452,35 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
       case '7':
       case '8':
       case '9':
-        //o = PyFloat_FromDouble(string2double(*endptr, &s));
         o = parseNumber(*endptr, &s);
         if (!isdelim(*s)) {
-          //printf("%.*s\n", 3, s);
           *endptr = s;
           free(quoteBitMap); free(nonAsciiBitMap);
           return SetError("JSON_BAD_NUMBER;");
         }
         break;
       case ']':
-        if (pos == -1) return SetError("JSON_STACK_UNDERFLOW;");
+        if (pos == -1) return SetError("JSON_STACK_UNDERFLOW");
         if (tags[pos] != JSON_ARRAY) return SetError("JSON_MISMATCH_BRACKET;");
         o = tails[pos];
         pos--;
         break;
       case '[':
-        if (++pos == JSON_STACK_SIZE) return SetError("JSON_STACK_OVERFLOW;");
+        if (++pos == JSON_STACK_SIZE) return SetError("JSON_STACK_OVERFLOW");
         tails[pos] = PyList_New(0);
         tags[pos]  = JSON_ARRAY;
         keys[pos]  = NULL;
         separator  = true;
         continue;
       case '}':
-        if (pos == -1) return SetError("JSON_STACK_UNDERFLOW;");
+        if (pos == -1) return SetError("JSON_STACK_UNDERFLOW");
         if (tags[pos] != JSON_OBJECT) return SetError("JSON_MISMATCH_BRACKET;");
         if (keys[pos] != NULL) return SetError("JSON_UNEXPECTED_CHARACTER}");
         o = tails[pos];
         pos--;
         break;
       case '{':
-        if (++pos == JSON_STACK_SIZE) return SetError("JSON_STACK_OVERFLOW;");
+        if (++pos == JSON_STACK_SIZE) return SetError("JSON_STACK_OVERFLOW");
         tails[pos] = PyDict_New();
         tags[pos] = JSON_OBJECT;
         keys[pos] = NULL;
@@ -550,8 +491,6 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
         separator = true;
         continue;
       case '"':
-        //numStrings += 1;
-        //o = JsonValue(JSON_STRING, s);
         off = s-ostart;
         shft = off&0x3F;
         bmOff = off/64;
@@ -560,13 +499,10 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
         while ( 1 ) { // TODO FIX infinite loop
           qbm    = quoteBitMap[ bmOff ];
           skipbm = nonAsciiBitMap[ bmOff ];
-          //printf(" bm %016lu\n", bm );
           qbm >>= shft;
           skipbm >>= shft;
           tz = TZCNT(qbm);
           skiptz = TZCNT(skipbm);
-          //printf(" shft %d off %d tz %lu skiptz %lu\n", shft, off, tz, skiptz );
-          //printf("%.*s\n", 33, start);
           if ( skiptz < tz ) break;
           if ( tz != 64 ) {
             slen += tz;
@@ -579,31 +515,19 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
 
         if ( tz < skiptz ) {
           *(s+slen) = 0;
-          //printf("%s\n", s);
-          //o = PyUnicode_FromStringAndSize(s, slen);
 #if PY_MAJOR_VERSION >= 3
           o = PyUnicode_FromKindAndData(PyUnicode_1BYTE_KIND, s, slen);
 #else
           o = PyUnicode_FromStringAndSize(s, slen);
 #endif
-          //printf("%s\n", s);
           s += slen+1;
-          //stringLen += slen;
-          //printf("end >%c<\n", *s);
           break;
         }
-        //numEscaped += 1;
         string_start = s;
         for (char *it = s; *s; ++it, ++s) {
             int c = *it = *s;
-            //printf("%c\n",c);
             if (c == '\\') {
-                //*(s+32) = 0;
-                //printf(">%s<\n",s);
-                //printf("backslash\n");
-                //printf(">%c<\n",*s);
                 c = *++s;
-                //printf("%d\n",c);
                 switch (c) {
                 case '\\':
                 case '"':
@@ -628,14 +552,9 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
                 case 'u':
                     c = 0;
                     // \ud8XX\udcXX
-                    //printf("UUU %c %c \n",s[1],s[2]);
                     if ( s[1] == 'd' && s[2] == '8' ) {
                       unsigned long tmp = (char2int(s[8])<<8 | char2int(s[9])<<4 | char2int(s[10])) - 0xC00;
                       unsigned long wc = 0x10000 | char2int(s[3])<<14 | char2int(s[4])<<10 | tmp;
-                      //printf("YAY 0x%02x\n",( 0xf0 | (wc >> 18) ));
-                      //printf("YAY 0x%02x\n",( 0x80 | ((wc >> 12) & 0x3f) ));
-                      //printf("YAY 0x%02x\n",( 0x80 | ((wc >> 6) & 0x3f) ));
-                      //printf("YAY 0x%02x\n",( 0x80 | (wc & 0x3f) ));
                       *it++ = ( 0xf0 | (wc >> 18) );
                       *it++ = ( 0x80 | ((wc >> 12) & 0x3f) );
                       *it++ = ( 0x80 | ((wc >> 6) & 0x3f) );
@@ -649,7 +568,7 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
                         } else {
                             *endptr = s;
                             free(quoteBitMap); free(nonAsciiBitMap);
-                            return SetError("JSON_BAD_STRING;");
+                            return SetError("JSON_BAD_STRING");
                         }
                     }
                     if (c < 0x80) {
@@ -666,40 +585,48 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
                 default:
                     *endptr = s;
                     free(quoteBitMap); free(nonAsciiBitMap);
-                    return SetError("JSON_BAD_STRING;");
+                    return SetError("JSON_BAD_STRING");
                 }
             } else if ((unsigned int)c < ' ' || c == '\x7F') {
               *endptr = s;
               free(quoteBitMap); free(nonAsciiBitMap);
-              return SetError("JSON_BAD_STRING;");
+              return SetError("JSON_BAD_STRING");
             } else if (c == '"') {
               *it = 0;
-              //printf("%s\n", string_start);
               o = PyUnicode_FromStringAndSize(string_start, (it - string_start));
-              //stringLen += (it - string_start);
               ++s;
               break;
             }
         }
         if (!isdelim(*s)) {
             *endptr = s;
-            return SetError("JSON_BAD_STRING;");
+            return SetError("JSON_BAD_STRING");
         }
         break;
       case 't':
-        if (!(s[0] == 'r' && s[1] == 'u' && s[2] == 'e' && isdelim(s[3]))) return SetError("JSON_BAD_IDENTIFIER;");
+        if (!(s[0] == 'r' && s[1] == 'u' && s[2] == 'e' && isdelim(s[3]))) return SetError("JSON_BAD_IDENTIFIER");
         o = newTrue();
         s += 3;
         break;
       case 'f':
-        if (!(s[0] == 'a' && s[1] == 'l' && s[2] == 's' && s[3] == 'e' && isdelim(s[4]))) return SetError("JSON_BAD_IDENTIFIER;");
+        if (!(s[0] == 'a' && s[1] == 'l' && s[2] == 's' && s[3] == 'e' && isdelim(s[4]))) return SetError("JSON_BAD_IDENTIFIER");
         o = newFalse();
         s += 4;
         break;
       case 'n':
-        if (!(s[0] == 'u' && s[1] == 'l' && s[2] == 'l' && isdelim(s[3]))) return SetError("JSON_BAD_IDENTIFIER;");
+        if (!(s[0] == 'u' && s[1] == 'l' && s[2] == 'l' && isdelim(s[3]))) return SetError("JSON_BAD_IDENTIFIER");
         o = newNull();
         s += 3;
+        break;
+      case 'N':
+        if (!(s[0] == 'a' && s[1] == 'N' && isdelim(s[2]))) return SetError("JSON_BAD_IDENTIFIER");
+        o = PyFloat_FromDouble(Py_NAN);
+        s += 2;
+        break;
+      case 'I': // Infinity
+        if (!(s[0] == 'n' && s[1] == 'f' && isdelim(s[7]))) return SetError("JSON_BAD_IDENTIFIER");
+        o = PyFloat_FromDouble(Py_HUGE_VAL);
+        s += 2;
         break;
       case ',':
         if (separator || keys[pos] != NULL) return SetError("JSON_UNEXPECTED_CHARACTER,");
@@ -708,9 +635,9 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
       case '\0':
         continue;
       default:
-        //printf("end >%c<\n", *s);
         free(quoteBitMap); free(nonAsciiBitMap);
-        return SetError("JSON_UNEXPECTED_CHARACTER;");
+        //printf("end >%c<\n", *s);
+        return SetError("JSON_UNEXPECTED_CHARACTER");
     }
     separator = false;
     if (pos == -1) {
@@ -765,16 +692,12 @@ PyObject* fromJson(PyObject* self, PyObject *args, PyObject *kwargs)
     return NULL;
   }
 
-  //numStrings = numEscaped = 0;
   char *endptr;
 #ifdef __AVX2__
   ret = jParse(PyString_AS_STRING(sarg), &endptr, PyString_GET_SIZE(sarg));
 #else
   ret = jsonParse(PyString_AS_STRING(sarg), &endptr, PyString_GET_SIZE(sarg));
 #endif
-
-  //printf("strings %d escaped %d\n", numStrings, numEscaped);
-  //printf("Average length %d", (stringLen/numStrings));
 
   if (sarg != arg)
   {

@@ -1,1 +1,5 @@
 *.so
+*.o
+dist/
+build/
+*egg*

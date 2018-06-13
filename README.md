@@ -10,7 +10,7 @@ To install it just run Pip as usual:
 
 ## Usage
 
-May be used as a replacement for json:
+May be used as a replacement for json
 
 ```python
     >>> import mrjson as json
@@ -20,17 +20,29 @@ May be used as a replacement for json:
     [{'key': 'value'}, 81, True]
 ```
 
-## Encoder option differences
+## Encoder differences
 
 **ensure_ascii** defaults to true in the base json module, but defaults to false here for space and performance reasons. 
 
 **indent**,  **separators**, and **sortKeys** are not supported as pretty printing doesn't need the performance. Write an issue if you have a use case.
 
-**allow_nan** is unsupported as NaN and infinity are supported by default
+**allow_nan** is unsupported as NaN and infinity are supported by default.
+
+Custom objects are supported if they implement an __json__() method returning a valid json string.
 
 ## Benchmarks		
 
-Run bench.py to test MrJSON against some other modules - test your own files on your own machine as results can vary significantly. MrJSON does particularly well decoding long strings and floating point numbers thanks to intel's AVX2 instructions and [Milo Yip at Tencent](https://github.com/Tencent/rapidjson) for publishing C++ code implementing Florian Loitsch's float to string algorithms. 
+Benchmark your own files as results can vary significantly:
+
+```
+$ python -m timeit -s "import mrjson as json;st = open('twit.json').read();" "json.loads(st)"
+100000 loops, best of 3: 4.58 usec per loop
+
+$ python -m timeit -s "import json;st = open('twit.json').read();" "json.loads(st)"
+100000 loops, best of 3: 9.44 usec per loop
+```
+
+Or run bench.py to test MrJSON against some other modules. MrJSON does particularly well decoding long strings and floating point numbers thanks to intel's AVX2 instructions and [Milo Yip at Tencent](https://github.com/Tencent/rapidjson) for publishing C++ code implementing Florian Loitsch's float to string algorithms. 
 
 #### Loads
 

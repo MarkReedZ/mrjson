@@ -66,8 +66,6 @@ static int doStringNoEscapes (Encoder *e, const char *str, const char *end)
 {
   char *of = e->s;
   if ( (end-str) == 0 ) printf("passed 0 len string?\n");
-  //printf("%d\n", end-str);
-  //printf("%.*s\n", end-str, str);
 
   for (;;)
   {
@@ -189,8 +187,13 @@ int encode( PyObject *o, Encoder *e ) {
     long long i = PyLong_AsLongLongAndOverflow(o, &overflow);
     if (i == -1 && PyErr_Occurred()) return 0;
     if (overflow == 0) {
-      do *s++ = (char)(48 + (i % 10ULL)); while(i /= 10ULL);
-      if (i < 0) *s++ = '-';
+      if ( i > 0 ) {
+        do *s++ = (char)(48 + (i % 10ULL)); while(i /= 10ULL); 
+      } else {
+        i *= -1;
+        do *s++ = (char)(48 + (i % 10ll)); while(i /= 10ll); 
+        *s++ = '-';
+      }
     } else {
       unsigned long long ui = PyLong_AsUnsignedLongLong(o);
       if (PyErr_Occurred()) return 0;
@@ -220,8 +223,6 @@ int encode( PyObject *o, Encoder *e ) {
     l = PyUnicode_GET_SIZE(o);
 #endif
     if (s == NULL) return 0; //ERR
-    //printf("str len %d\n", l);
-    //if ( l == 0 ) printf("%.*s\n", 32, (e->s-32));
     if ( l <= 0 || l > UINT_MAX ) {
       if ( l != 0 ) {
         PyErr_SetString(PyExc_TypeError, "Bad string length");
@@ -360,17 +361,57 @@ int encode( PyObject *o, Encoder *e ) {
     }
   }
   else {
-    printf("Unknown type!?\n");
-    PyObject* objectsRepresentation = PyObject_Repr(o);
-    const char* msg;
+    //printf("Unknown type!\n");
+
+    // TODO Check __json__, to_dict, toDict, _asDict
+    if (PyObject_HasAttrString(o, "__json__"))
+    {
+      PyObject* func = PyObject_GetAttrString(o, "__json__"); 
+      PyObject* res = PyObject_Call(func, NULL);
+      Py_DECREF(func);
+  
+      if (PyErr_Occurred()) {
+        PyErr_SetString(PyExc_TypeError, "Unserializable object's __json__ threw an error");
+        Py_XDECREF(res);
+        return 0;
+      }
+      if (res == NULL) {
+        PyErr_SetString(PyExc_TypeError, "Unserializable object's __json__ call failed");
+        return 0;
+      }
+  
+      if (!PyString_Check(res) && !PyUnicode_Check(res))
+      {
+        Py_DECREF(res);
+        PyErr_Format (PyExc_TypeError, "expected string from custom object's __json__ method.");
+        return 0;
+      }
+
+      Py_ssize_t l;
 #if PY_MAJOR_VERSION >= 3
-    size_t sz;
-    msg = PyUnicode_AsUTF8AndSize(objectsRepresentation, &sz);
+      const char* p = PyUnicode_AsUTF8AndSize(res, &l);
 #else
-    msg  = PyString_AsString(objectsRepresentation);
+      const char* p = PyUnicode_AsUTF8String(res);
+      l = PyUnicode_GET_SIZE(res);
 #endif
-    PyErr_Format(PyExc_TypeError, "%s is not JSON serializable", msg);
-    return 0;
+      if (p == NULL) return 0; //TODO ERR
+
+      memcpy(e->s, p, l);
+      e->s += l;
+  
+    } else {
+
+      PyObject* objectsRepresentation = PyObject_Repr(o);
+      const char* msg;
+#if PY_MAJOR_VERSION >= 3
+      size_t sz;
+      msg = PyUnicode_AsUTF8AndSize(objectsRepresentation, &sz);
+#else
+      msg  = PyString_AsString(objectsRepresentation);
+#endif
+      PyErr_Format(PyExc_TypeError, "%s is not JSON serializable", msg);
+      return 0;
+    }
   }
   return 1;
 }
@@ -421,13 +462,7 @@ PyObject* toJson(PyObject* self, PyObject *args, PyObject *kwargs) {
   int r = do_encode( oinput, &enc );
  
   if ( r != 0 ) {
-    //printf("%.*s\n", 3, enc.start);
-    //printf("YAY");
     *enc.s = '\0';
-    //PyErr_PrintEx(5);
-    //printf("YAY enc len %d\n", (enc.s)-(enc.start));
-    //PyObject *o = PyString_FromString (enc.start); 
-    //PyObject *o = PyUnicode_FromKindAndData(PyUnicode_1BYTE_KIND, enc.start, enc.s-enc.start);
     PyObject *o = PyUnicode_FromStringAndSize(enc.start, enc.s-enc.start);
     free(enc.start);
     return o;
@@ -435,8 +470,6 @@ PyObject* toJson(PyObject* self, PyObject *args, PyObject *kwargs) {
   free(enc.start);
   return NULL;
 }
-
-//char *toJson(PyObject *o, char *_buffer, size_t _cbBuffer)
 
 PyObject* toJsonFile(PyObject* self, PyObject *args, PyObject *kwargs)
 {
