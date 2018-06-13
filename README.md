@@ -35,11 +35,11 @@ Custom objects are supported if they implement an __json__() method returning a 
 Benchmark your own files as results can vary significantly:
 
 ```
-$ python -m timeit -s "import mrjson as json;st = open('twit.json').read();" "json.loads(st)"
-100000 loops, best of 3: 4.58 usec per loop
+$ python -m timeit -s "import mrjson as json;st = open('canada.json').read();" "json.loads(st)"
+100 loops, best of 3: 8.05 msec per loop
 
-$ python -m timeit -s "import json;st = open('twit.json').read();" "json.loads(st)"
-100000 loops, best of 3: 9.44 usec per loop
+$ python -m timeit -s "import json;st = open('canada.json').read();" "json.loads(st)"
+10 loops, best of 3: 32.7 msec per loop
 ```
 
 Or run bench.py to test MrJSON against some other modules. MrJSON does particularly well decoding long strings and floating point numbers thanks to intel's AVX2 instructions and [Milo Yip at Tencent](https://github.com/Tencent/rapidjson) for publishing C++ code implementing Florian Loitsch's float to string algorithms. 
