@@ -8,8 +8,6 @@
 //#define IS_NAN(x) std::isnan(x)
 //#define IS_INF(x) std::isinf(x)
 
-#define RESERVE_STRING(_len) (2 + ((_len) * 6))
-
 static const char g_hexChars[] = "0123456789abcdef";
 
 typedef struct _encoder
@@ -49,7 +47,7 @@ static int resizeBuffer(Encoder *e, size_t len)
 }
 
 #define resizeBufferIfNeeded(__enc, __len) \
-    if ( (size_t) ((__enc)->end - (__enc)->s) < (size_t) (__len))  { resizeBuffer((__enc), (__len)); }\
+    if ( (size_t) ((__enc)->end - (__enc)->s) < (size_t) (__len))  { resizeBuffer((__enc), (__len)); }
 
 
 static inline void reverse(char* begin, char* end)
@@ -114,8 +112,7 @@ static int doStringNoEscapes (Encoder *e, const char *str, const char *end)
         break;
         //}
       }
-      case 0x01:
-      case 0x02:
+      case 0x01: case 0x02:
       case 0x03:
       case 0x04:
       case 0x05:
@@ -367,7 +364,7 @@ int encode( PyObject *o, Encoder *e ) {
     if (PyObject_HasAttrString(o, "__json__"))
     {
       PyObject* func = PyObject_GetAttrString(o, "__json__"); 
-      PyObject* res = PyObject_Call(func, NULL);
+      PyObject* res = PyObject_CallFunctionObjArgs(func, NULL);
       Py_DECREF(func);
   
       if (PyErr_Occurred()) {
@@ -404,7 +401,7 @@ int encode( PyObject *o, Encoder *e ) {
       PyObject* objectsRepresentation = PyObject_Repr(o);
       const char* msg;
 #if PY_MAJOR_VERSION >= 3
-      size_t sz;
+      Py_ssize_t sz;
       msg = PyUnicode_AsUTF8AndSize(objectsRepresentation, &sz);
 #else
       msg  = PyString_AsString(objectsRepresentation);

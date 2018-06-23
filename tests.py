@@ -60,14 +60,15 @@ for o in objs:
   except Exception as e:
     print( "ERROR",str(e), o )
 
-raises( "NaNd", j.loads, ValueError, "JSON_BAD_IDENTIFIER" )  
-raises( "[", j.loads, ValueError, "JSON_UNEXPECTED_END" )  
-raises( "]", j.loads, ValueError, "JSON_STACK_UNDERFLOW" )  
-raises( "{", j.loads, ValueError, "JSON_UNEXPECTED_END" )  
-raises( "}", j.loads, ValueError, "JSON_STACK_UNDERFLOW" )  
-raises( "[1,2,,]", j.loads, ValueError, "JSON_UNEXPECTED_CHARACTER," )  
-raises( "[1,z]", j.loads, ValueError, "JSON_UNEXPECTED_CHARACTER" )  
 
+
+raises( "NaNd",    j.loads, ValueError, "JSON_BAD_IDENTIFIER" )  
+raises( "[",       j.loads, ValueError, "JSON_UNEXPECTED_END" )  
+raises( "]",       j.loads, ValueError, "JSON_STACK_UNDERFLOW" )  
+raises( "{",       j.loads, ValueError, "JSON_UNEXPECTED_END" )  
+raises( "}",       j.loads, ValueError, "JSON_STACK_UNDERFLOW" )  
+raises( "[1,2,,]", j.loads, ValueError, "JSON_UNEXPECTED_CHARACTER," )  
+raises( "[1,z]",   j.loads, ValueError, "JSON_UNEXPECTED_CHARACTER" )  
 raises( "["*(1024*1024), j.loads, ValueError, "JSON_STACK_OVERFLOW" )  
 
 class JSONTest:

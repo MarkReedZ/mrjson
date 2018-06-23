@@ -17,8 +17,6 @@ PyDoc_STRVAR(docstring,
              "Decode a JSON string into a Python object.");
 
 static PyMethodDef mrjsonMethods[] = {
-  {"encode", (PyCFunction) toJson,       METH_VARARGS | METH_KEYWORDS, docstring },
-  {"decode", (PyCFunction) fromJson,     METH_VARARGS | METH_KEYWORDS, docstring },
   {"dumps",  (PyCFunction) toJson,       METH_VARARGS | METH_KEYWORDS, docstring },
   {"loads",  (PyCFunction) fromJson,     METH_VARARGS | METH_KEYWORDS, docstring },
   {"dump",   (PyCFunction) toJsonFile,   METH_VARARGS | METH_KEYWORDS, docstring },
@@ -55,9 +53,7 @@ static struct PyModuleDef moduledef = {
 PYMODINITFUNC
 {
   PyObject *m;
-  PyObject *v;
 
-  //initObjToJSON();
   m = PYMODULE_CREATE();
 
   if (m == NULL) { MODINITERROR; }
