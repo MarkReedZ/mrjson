@@ -62,10 +62,10 @@ setup(
     libraries = [libdconv],
     ext_modules = [module1],
     author="Mark Reed",
-    author_email="mark@untilfluent.com",
-    download_url="https://github.com/UntilFluent/MrJSON/archive/1.0.tar.gz",
+    author_email="markreed99@gmail.com",
+    download_url="https://github.com/MarkReedZ/mrjson/archive/v1.0.1.tar.gz",
     platforms=['any'],
-    url="https://github.com/UntilFluent/MrJSON",
+    url="https://github.com/MarkReedZ/mrjson",
     cmdclass = {'build_ext': build_ext, 'build_clib': build_clib_without_warnings},
     classifiers=[
         'Development Status :: 5 - Production/Stable',
