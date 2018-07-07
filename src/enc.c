@@ -428,8 +428,9 @@ int do_encode(PyObject *o, Encoder *enc ) {
 
 }
 
+
 PyObject* toJson(PyObject* self, PyObject *args, PyObject *kwargs) {
-  static char *kwlist[] = { "obj", "ensure_ascii", "sort_keys", "indent", "skipkeys", NULL };
+  static char *kwlist[] = { "obj", "ensure_ascii", "sort_keys", "indent", "skipkeys", "output_bytes", NULL };
 
   PyObject *oinput = NULL;
   PyObject *oensureAscii = NULL;
@@ -438,10 +439,11 @@ PyObject* toJson(PyObject* self, PyObject *args, PyObject *kwargs) {
   PyObject *osortKeys = NULL;
   PyObject* oindent = NULL;
   PyObject* oskipkeys = NULL;
+  PyObject* obytes = NULL;
 
   Encoder enc = { NULL,NULL,NULL,0,0,0,0,0 };
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOO", kwlist, &oinput, &oensureAscii, &osortKeys, &oindent, &oskipkeys)) return NULL;
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOO", kwlist, &oinput, &oensureAscii, &osortKeys, &oindent, &oskipkeys, &obytes)) return NULL;
 
   if (oensureAscii != NULL && !PyObject_IsTrue(oensureAscii)) enc.ensure_ascii = 0;
   if (osortKeys != NULL && PyObject_IsTrue(osortKeys)) enc.sortKeys = 1;
@@ -460,12 +462,23 @@ PyObject* toJson(PyObject* self, PyObject *args, PyObject *kwargs) {
  
   if ( r != 0 ) {
     *enc.s = '\0';
-    PyObject *o = PyUnicode_FromStringAndSize(enc.start, enc.s-enc.start);
+    PyObject *ret;
+    if ( obytes != NULL ) { //PyObject_IsTrue(obytes) ) {
+      ret = PyBytes_FromStringAndSize(enc.start, enc.s-enc.start);
+    } else {
+      ret = PyUnicode_FromStringAndSize(enc.start, enc.s-enc.start);
+    }
     free(enc.start);
-    return o;
+    return ret;
   } 
   free(enc.start);
   return NULL;
+}
+
+PyObject* toJsonBytes(PyObject* self, PyObject *args, PyObject *kwargs) {
+  if (kwargs == NULL) kwargs = PyDict_New();
+  PyDict_SetItemString( kwargs, "output_bytes", Py_True );
+  return toJson( self, args, kwargs );
 }
 
 PyObject* toJsonFile(PyObject* self, PyObject *args, PyObject *kwargs)

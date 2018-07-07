@@ -13,7 +13,7 @@ def raises( o, f, exc,details ):
     if type(e) != exc:
       print("ERROR",o," rose wrong exception",type(e),e)
     if str(e) != details:
-      print("ERROR",o," rose wrong exception details: ",e,"expected",details)
+      print("ERROR",o," rose wrong exception details actual vs expected:\n",e,"\n",details)
 
 def eq( a, b ):
   if a != b:
@@ -55,12 +55,12 @@ None, True,False,float('inf'),
 o = j.loads( j.dumps( float('nan') ) )
 eq( str(o), 'nan' )
 
+
 for o in objs:
   try:
     eq( o, j.loads(j.dumps(o)) )
   except Exception as e:
     print( "ERROR",str(e), o )
-
 
 
 raises( "NaNd",    j.loads, ValueError, "JSON_BAD_IDENTIFIER" )  
@@ -71,6 +71,16 @@ raises( "}",       j.loads, ValueError, "JSON_STACK_UNDERFLOW" )
 raises( "[1,2,,]", j.loads, ValueError, "JSON_UNEXPECTED_CHARACTER," )  
 raises( "[1,z]",   j.loads, ValueError, "JSON_UNEXPECTED_CHARACTER" )  
 raises( "["*(1024*1024), j.loads, ValueError, "JSON_STACK_OVERFLOW" )  
+
+# Check bytes 
+for o in objs:
+  try:
+    eq( o, j.loadb(j.dumpb(o)) )
+  except Exception as e:
+    print( "ERROR",str(e), o )
+
+eq( j.dumpb(1), b'1' )
+raises( "NaNd",    j.loadb, TypeError, "Expected bytes, use loads for a unicode string" )  
 
 class JSONTest:
   def __json__(self):

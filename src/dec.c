@@ -668,14 +668,15 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
 #endif
 
 
+
 PyObject* fromJson(PyObject* self, PyObject *args, PyObject *kwargs)
 {
-  static char *g_kwlist[] = {"obj", NULL};
+  static char *kwlist[] = {"obj", NULL};
   PyObject *ret;
   PyObject *sarg;
   PyObject *arg;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O", g_kwlist, &arg)) return NULL;
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O", kwlist, &arg)) return NULL;
 
   if (PyString_Check(arg))
   {
@@ -705,6 +706,22 @@ PyObject* fromJson(PyObject* self, PyObject *args, PyObject *kwargs)
   }
 
   return ret;
+}
+
+PyObject* fromJsonBytes(PyObject* self, PyObject *args, PyObject *kwargs) {
+  static char *kwlist[] = {"obj", NULL};
+  PyObject *arg;
+  PyObject *argtuple;
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O", kwlist, &arg)) return NULL;
+
+  if (!PyBytes_Check(arg)) {
+    PyErr_Format(PyExc_TypeError, "Expected bytes, use loads for a unicode string");
+    return NULL;
+  }
+
+  arg = PyUnicode_FromEncodedObject( arg, "utf-8", "strict" );
+  argtuple = PyTuple_Pack(1, arg);
+  return fromJson(self, argtuple, kwargs);
 }
 
 PyObject* fromJsonFile(PyObject* self, PyObject *args, PyObject *kwargs)

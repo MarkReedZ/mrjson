@@ -4,23 +4,23 @@
 #define STRINGIFY(x) XSTRINGIFY(x)
 #define XSTRINGIFY(x) #x
 
-PyObject* toJson    (PyObject* self, PyObject *args, PyObject *kwargs);
-PyObject* toJsonFile(PyObject* self, PyObject *args, PyObject *kwargs);
+PyObject* toJson     (PyObject* self, PyObject *args, PyObject *kwargs);
+PyObject* toJsonFile (PyObject* self, PyObject *args, PyObject *kwargs);
+PyObject* toJsonBytes(PyObject* self, PyObject *args, PyObject *kwargs);
 
-PyObject* fromJson    (PyObject* self, PyObject *args, PyObject *kwargs);
-PyObject* fromJsonFile(PyObject* self, PyObject *args, PyObject *kwargs);
+PyObject* fromJson     (PyObject* self, PyObject *args, PyObject *kwargs);
+PyObject* fromJsonFile (PyObject* self, PyObject *args, PyObject *kwargs);
+PyObject* fromJsonBytes(PyObject* self, PyObject *args, PyObject *kwargs);
 
-
-PyDoc_STRVAR(docstring,
-             "loads(string, *, ensure_ascii=False)\n"
-             "\n"
-             "Decode a JSON string into a Python object.");
 
 static PyMethodDef mrjsonMethods[] = {
-  {"dumps",  (PyCFunction) toJson,       METH_VARARGS | METH_KEYWORDS, docstring },
-  {"loads",  (PyCFunction) fromJson,     METH_VARARGS | METH_KEYWORDS, docstring },
-  {"dump",   (PyCFunction) toJsonFile,   METH_VARARGS | METH_KEYWORDS, docstring },
-  {"load",   (PyCFunction) fromJsonFile, METH_VARARGS | METH_KEYWORDS, docstring },
+  {"dump",   (PyCFunction) toJsonFile,     METH_VARARGS | METH_KEYWORDS, "Encode an object as a json file" },
+  {"dumps",  (PyCFunction) toJson,         METH_VARARGS | METH_KEYWORDS, "Encode an object as a json string" },
+  {"dumpb",  (PyCFunction) toJsonBytes,    METH_VARARGS | METH_KEYWORDS, "Encode an object as json bytes"  },
+
+  {"load",   (PyCFunction) fromJsonFile,   METH_VARARGS | METH_KEYWORDS, "Decode a json file" },
+  {"loads",  (PyCFunction) fromJson,       METH_VARARGS | METH_KEYWORDS, "Decode a json string" },
+  {"loadb",  (PyCFunction) fromJsonBytes,  METH_VARARGS | METH_KEYWORDS, "Decode a json byte string" },
   {NULL, NULL, 0, NULL}       /* Sentinel */
 };
 
@@ -31,7 +31,7 @@ static struct PyModuleDef moduledef = {
   "mrjson",
   0,              /* m_doc */
   -1,             /* m_size */
-  mrjsonMethods,   /* m_methods */
+  mrjsonMethods,  /* m_methods */
   NULL,           /* m_reload */
   NULL,           /* m_traverse */
   NULL,           /* m_clear */
