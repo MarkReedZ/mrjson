@@ -63,14 +63,29 @@ for o in objs:
     print( "ERROR",str(e), o )
 
 
-raises( "NaNd",    j.loads, ValueError, "JSON_BAD_IDENTIFIER" )  
-raises( "[",       j.loads, ValueError, "JSON_UNEXPECTED_END" )  
-raises( "]",       j.loads, ValueError, "JSON_STACK_UNDERFLOW" )  
-raises( "{",       j.loads, ValueError, "JSON_UNEXPECTED_END" )  
-raises( "}",       j.loads, ValueError, "JSON_STACK_UNDERFLOW" )  
-raises( "[1,2,,]", j.loads, ValueError, "JSON_UNEXPECTED_CHARACTER," )  
-raises( "[1,z]",   j.loads, ValueError, "JSON_UNEXPECTED_CHARACTER" )  
-raises( "["*(1024*1024), j.loads, ValueError, "JSON_STACK_OVERFLOW" )  
+print("Testing Exceptions..")
+raises( "NaNd",    j.loads, ValueError, "Expecting 'NaN' at pos 0" )
+raises( "[",       j.loads, ValueError, "JSON_UNEXPECTED_END" )
+raises( "]",       j.loads, ValueError, "Closing bracket ']' without an opening bracket at pos 0" )
+raises( "{",       j.loads, ValueError, "JSON_UNEXPECTED_END" )
+raises( "}",       j.loads, ValueError, "Closing bracket '}' without an opening bracket at pos 0")
+raises( "[1,2,,]", j.loads, ValueError, "Unexpected character ',' at pos 5")
+raises( "[1,z]",   j.loads, ValueError, "Unexpected character at pos 3")
+raises( "[1:,z]",   j.loads, ValueError, "Unexpected character ':' while parsing JSON string at pos 2")
+raises( "[1,2}]",   j.loads, ValueError, "Closing bracket '}' without an opening bracket at pos 4")
+raises( '{"foo":1]',   j.loads, ValueError, "Mismatched closing bracket, expected a }")
+raises( '{"foo"}:2}',   j.loads, ValueError, 'Expected a "key":value, but got a closing bracket \'}\' at pos 6')
+raises( '{"foo":}2}',   j.loads, ValueError, 'Expected a "key":value, but got a closing bracket \'}\' at pos 7')
+raises( "["*(1024*1024), j.loads, ValueError, "Too many nested objects, the max depth is 32")
+raises( "-[1,2]",   j.loads, ValueError, "Saw a - without a number following it at pos 0")
+raises( "123[1,2]",   j.loads, ValueError, "A number must be followed by a delimiter at pos 2")
+raises( '[1,2,"yay\\u232G]',   j.loads, ValueError, "Unicode escape malformed at pos 9")
+raises( '"yay\ztest"',   j.loads, ValueError, "Unexpected escape character 'z' at pos 4")
+raises( 'truez',   j.loads, ValueError, "Unexpected object, expected 'true' at pos 0")
+raises( 'fals',   j.loads, ValueError, "Unexpected object, expected 'false' at pos 0")
+raises( 'nul',   j.loads, ValueError, "Unexpected object, expected 'null' at pos 0")
+raises( 'Infinty',   j.loads, ValueError, "Unexpected object, expected 'Infinity' at pos 0")
+
 
 # Check bytes 
 for o in objs:
