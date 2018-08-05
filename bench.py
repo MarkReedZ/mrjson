@@ -22,11 +22,11 @@ for tst in tsts:
   print ("Test",tst,"loads")
   for mod in mods:
     setup2 = setup.replace("ZZZ",mod).replace("YYY",tst)
-    print ("  ",(min(timeit.Timer(mod+'.loads(s)', setup=setup2).repeat(100, 1))), "  \t", mod)
+    print ("  ",(min(timeit.Timer(mod+'.loads(s)', setup=setup2).repeat(10, 1))), "  \t", mod)
 
 for tst in tsts:
   print ("Test",tst,"dumps")
   for mod in mods:
     setup2 = setup.replace("ZZZ",mod).replace("YYY",tst)
-    print ("  ",(min(timeit.Timer(mod+'.dumps(obj)', setup=setup2).repeat(100, 1))), "  \t", mod)
+    print ("  ",(min(timeit.Timer(mod+'.dumps(obj)', setup=setup2).repeat(10, 1))), "  \t", mod)
 

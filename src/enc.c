@@ -5,8 +5,6 @@
 
 #define IS_NAN(x) Py_IS_NAN(x)
 #define IS_INF(x) Py_IS_INFINITY(x)
-//#define IS_NAN(x) std::isnan(x)
-//#define IS_INF(x) std::isinf(x)
 
 static const char g_hexChars[] = "0123456789abcdef";
 
@@ -48,7 +46,6 @@ static int resizeBuffer(Encoder *e, size_t len)
 
 #define resizeBufferIfNeeded(__enc, __len) \
     if ( (size_t) ((__enc)->end - (__enc)->s) < (size_t) (__len))  { resizeBuffer((__enc), (__len)); }
-
 
 static inline void reverse(char* begin, char* end)
 {
@@ -112,31 +109,10 @@ static int doStringNoEscapes (Encoder *e, const char *str, const char *end)
         break;
         //}
       }
-      case 0x01: case 0x02:
-      case 0x03:
-      case 0x04:
-      case 0x05:
-      case 0x06:
-      case 0x07:
+      case 0x01: case 0x02: case 0x03: case 0x04: case 0x05: case 0x06: case 0x07: 
       case 0x0b:
-      case 0x0e:
-      case 0x0f:
-      case 0x10:
-      case 0x11:
-      case 0x12:
-      case 0x13:
-      case 0x14:
-      case 0x15:
-      case 0x16:
-      case 0x17:
-      case 0x18:
-      case 0x19:
-      case 0x1a:
-      case 0x1b:
-      case 0x1c:
-      case 0x1d:
-      case 0x1e:
-      case 0x1f:
+      case 0x0e: case 0x0f: case 0x10: case 0x11: case 0x12: case 0x13: case 0x14: case 0x15: case 0x16:
+      case 0x17: case 0x18: case 0x19: case 0x1a: case 0x1b: case 0x1c: case 0x1d: case 0x1e: case 0x1f:
       {
         *(of++) = '\\'; *(of++) = 'u'; *(of++) = '0'; *(of++) = '0';
         *(of++) = g_hexChars[ (unsigned char) (((*str) & 0xf0) >> 4)];
@@ -151,6 +127,8 @@ static int doStringNoEscapes (Encoder *e, const char *str, const char *end)
 
 int encode( PyObject *o, Encoder *e ) {
   resizeBufferIfNeeded(e,2048);
+
+  // TODO Would reordering speed this up?
   if ( o == Py_None ) {
     *(e->s++) = 'n'; *(e->s++) = 'u'; *(e->s++) = 'l'; *(e->s++) = 'l';
   }
@@ -406,7 +384,7 @@ int encode( PyObject *o, Encoder *e ) {
 #else
       msg  = PyString_AsString(objectsRepresentation);
 #endif
-      PyErr_Format(PyExc_TypeError, "%s is not JSON serializable", msg);
+      PyErr_Format(PyExc_TypeError, "%s is not JSON serializable, add an __json__ function", msg);
       return 0;
     }
   }
@@ -417,7 +395,7 @@ int do_encode(PyObject *o, Encoder *enc ) {
   int len = 65536;
   char *s = (char *) malloc (len);
   if (!s) {
-    //SetError(obj, enc, 'Could not reserve memory block");
+    SetError("Could not reserve memory block");
     return 0;
   }
 

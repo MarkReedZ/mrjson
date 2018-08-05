@@ -1,3 +1,4 @@
 
-g++ -fpic -c dconv.cc -o dconv.o
-g++ -shared -o dconv.so dconv.o
+g++ -fpic -c dconv.cc -o dconv.o -O3
+g++ -shared -o dconv.so dconv.o -O3
+

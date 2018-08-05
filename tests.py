@@ -24,6 +24,8 @@ def eq( a, b ):
 
 print("Running tests...")
 objs = [
+[float("inf"),2],
+[1,float("-inf"),2],
 -1, 12, 1,
 -132123123123,
 1.002, -1.31,
@@ -35,6 +37,7 @@ objs = [
 [1, 2, 3, [4,5,6,7,8]],
 {"k1": 1, "k2": 2, "k3": 3, "k4": 4},
 '\u273f\u2661\u273f',  # ✿♡✿
+{},
 "\x00", "\x19", 
 "afsd \x00 fdasf",
 "\xe6\x97\xa5\xd1\x88",
@@ -64,27 +67,28 @@ for o in objs:
 
 
 print("Testing Exceptions..")
-raises( "NaNd",    j.loads, ValueError, "Expecting 'NaN' at pos 0" )
-raises( "[",       j.loads, ValueError, "JSON_UNEXPECTED_END" )
-raises( "]",       j.loads, ValueError, "Closing bracket ']' without an opening bracket at pos 0" )
-raises( "{",       j.loads, ValueError, "JSON_UNEXPECTED_END" )
-raises( "}",       j.loads, ValueError, "Closing bracket '}' without an opening bracket at pos 0")
-raises( "[1,2,,]", j.loads, ValueError, "Unexpected character ',' at pos 5")
-raises( "[1,z]",   j.loads, ValueError, "Unexpected character at pos 3")
-raises( "[1:,z]",   j.loads, ValueError, "Unexpected character ':' while parsing JSON string at pos 2")
-raises( "[1,2}]",   j.loads, ValueError, "Closing bracket '}' without an opening bracket at pos 4")
-raises( '{"foo":1]',   j.loads, ValueError, "Mismatched closing bracket, expected a }")
+raises( "NaNd",         j.loads, ValueError, "Expecting 'NaN' at pos 0" )
+raises( "[",            j.loads, ValueError, "JSON_UNEXPECTED_END" )
+raises( "]",            j.loads, ValueError, "Closing bracket ']' without an opening bracket at pos 0" )
+raises( "{",            j.loads, ValueError, "JSON_UNEXPECTED_END" )
+raises( "}",            j.loads, ValueError, "Closing bracket '}' without an opening bracket at pos 0")
+raises( "[1,2,,]",      j.loads, ValueError, "Unexpected character ',' at pos 5")
+raises( "[1,z]",        j.loads, ValueError, "Unexpected character at pos 3")
+raises( "[1:,z]",       j.loads, ValueError, "Unexpected character ':' while parsing JSON string at pos 2")
+raises( "[1,2}]",       j.loads, ValueError, "Closing bracket '}' without an opening bracket at pos 4")
+raises( '{"foo":1]',    j.loads, ValueError, "Mismatched closing bracket, expected a }")
 raises( '{"foo"}:2}',   j.loads, ValueError, 'Expected a "key":value, but got a closing bracket \'}\' at pos 6')
-raises( '{"foo":}2}',   j.loads, ValueError, 'Expected a "key":value, but got a closing bracket \'}\' at pos 7')
-raises( "["*(1024*1024), j.loads, ValueError, "Too many nested objects, the max depth is 32")
-raises( "-[1,2]",   j.loads, ValueError, "Saw a - without a number following it at pos 0")
-raises( "123[1,2]",   j.loads, ValueError, "A number must be followed by a delimiter at pos 2")
-raises( '[1,2,"yay\\u232G]',   j.loads, ValueError, "Unicode escape malformed at pos 9")
-raises( '"yay\ztest"',   j.loads, ValueError, "Unexpected escape character 'z' at pos 4")
-raises( 'truez',   j.loads, ValueError, "Unexpected object, expected 'true' at pos 0")
-raises( 'fals',   j.loads, ValueError, "Unexpected object, expected 'false' at pos 0")
-raises( 'nul',   j.loads, ValueError, "Unexpected object, expected 'null' at pos 0")
-raises( 'Infinty',   j.loads, ValueError, "Unexpected object, expected 'Infinity' at pos 0")
+raises( '{"foo":}2}',         j.loads, ValueError, 'Expected a "key":value, but got a closing bracket \'}\' at pos 7')
+raises( "["*(1024*1024),      j.loads, ValueError, "Too many nested objects, the max depth is 32")
+raises( "-[1,2]",             j.loads, ValueError, "Saw a - without a number following it at pos 0")
+raises( "123[1,2]",           j.loads, ValueError, "A number must be followed by a delimiter at pos 2")
+raises( '[1,2,"yay\\u232G]',  j.loads, ValueError, "Unicode escape malformed at pos 9")
+raises( '"yay\ztest"',        j.loads, ValueError, "Unexpected escape character 'z' at pos 4")
+raises( 'truez',              j.loads, ValueError, "Expecting 'true' at pos 0")
+raises( 'fals',               j.loads, ValueError, "Expecting 'false' at pos 0")
+raises( 'nul',                j.loads, ValueError, "Expecting 'null' at pos 0")
+raises( 'Infinty',            j.loads, ValueError, "Expecting 'Infinity' at pos 0")
+raises( '-Infinit',           j.loads, ValueError, "Expecting '-Infinity' at pos 0")
 
 
 # Check bytes 
@@ -92,7 +96,8 @@ for o in objs:
   try:
     eq( o, j.loadb(j.dumpb(o)) )
   except Exception as e:
-    print( "ERROR",str(e), o )
+    print( "ERROR Unexpected exception: ",str(e), "on object ", o, "json bytes",j.dumpb(o) )
+
 
 eq( j.dumpb(1), b'1' )
 raises( "NaNd",    j.loadb, TypeError, "Expected bytes, use loads for a unicode string" )  

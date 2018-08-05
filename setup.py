@@ -16,6 +16,8 @@ libdconv = (
         sources = ["src/dconv.cc"],
         include_dirs = ["./src"],
         language = "c++"
+        # build_clib doesn't allow modifying the compile args
+        #extra_compile_args = ['-O3'], 
     )
 )
 
@@ -44,12 +46,10 @@ module1 = Extension(
          './src/enc.c'
      ],
      include_dirs = ['./src'],
-     extra_compile_args = ['-D_GNU_SOURCE','-mavx2'],
+     extra_compile_args = ['-D_GNU_SOURCE','-mavx2','-O3'],
      extra_link_args = ['-lstdc++', '-lm'],
      define_macros = [('MRJSON_VERSION', VERSION)]
 )
-
-
 
 setup(
     name = 'mrjson',
@@ -62,8 +62,8 @@ setup(
     libraries = [libdconv],
     ext_modules = [module1],
     author="Mark Reed",
-    author_email="markreed99@gmail.com",
-    download_url="https://github.com/MarkReedZ/mrjson/archive/v1.0.1.tar.gz",
+    author_email="mark@untilfluent.com",
+    download_url="https://github.com/MarkReedZ/mrjson/archive/v1.0.4.tar.gz",
     platforms=['any'],
     url="https://github.com/MarkReedZ/mrjson",
     cmdclass = {'build_ext': build_ext, 'build_clib': build_clib_without_warnings},
@@ -73,11 +73,9 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Programming Language :: C',
         'Programming Language :: C++',
-        'Programming Language :: Python :: 3 :: Only',
+        'Programming Language :: Python :: 2.6',
+        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python',
     ],
 )
