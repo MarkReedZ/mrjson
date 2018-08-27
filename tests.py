@@ -22,7 +22,26 @@ def eq( a, b ):
     return -1
   return 0
 
+
 print("Running tests...")
+
+#
+jtxt = '[[{"c":"blw_2IgLc","up":true,"type":"upv","s":0,"t":0},{"c":"blw_2IgLc","up":true,"type":"upv","s":0,"t":0},{"c":"blw_2IgLc","up":true,"type":"upv","s":0,"t":0},{"c":"blw_2IgLc","up":true,"type":"upv","s":0,"t":0},{"c":"blw_2IgLc","up":true,"type":"upv","s":0,"t":0},{"c":"blw_2IgLc","up":true,"type":"upv","s":0,"t":0},{"c":"blw_2IgLc","up":true,"type":"upv","s":0,"t":0},{"c":"blw_2IgLc","up":true,"type":"upv","s":0,"t":0},{"c":"blw_2IgLc","up":true,"type":"upv","s":0,"t":0},{"c":"blw_2IgLc","up":true,"type":"upv","s":0,"t":0}],{"username":"1","id":1}]'
+j.loads(jtxt)
+
+tsts =[
+ [ {1:2}, '{"1":2}' ],
+ [ [0,0,1], "[0,0,1]" ],
+ [ [-1.002,0,1], "[-1.002,0,1]" ],
+ [ [-1,0,1], "[-1,0,1]" ],
+ [ ["string",0,float("inf")], '["string",0,Infinity]' ],
+ [ {"string":True,"b":False}, '{"string":true,"b":false}'],
+ [ {"type":"add","s":0,"t":0,"c":199454061429160,"p":0,"au":"6133","uid":6133,"ago":"1 hour ago","txt":"Floors bulkhead a tongues gage patrols winter gage records. Because. This stuffing airspeeds submarines farm marks cloud specialists coughs disasters. Shortage this democracy cameras have pulls shoe personality. Fishes jurisdiction problem crowd cash rebounds how well braces."}, '{"type":"add","s":0,"t":0,"c":199454061429160,"p":0,"au":"6133","uid":6133,"ago":"1 hour ago","txt":"Floors bulkhead a tongues gage patrols winter gage records. Because. This stuffing airspeeds submarines farm marks cloud specialists coughs disasters. Shortage this democracy cameras have pulls shoe personality. Fishes jurisdiction problem crowd cash rebounds how well braces."}' ],
+]
+
+for t in tsts:
+  eq( j.dumps(t[0]), t[1] )
+
 objs = [
 [float("inf"),2],
 [1,float("-inf"),2],

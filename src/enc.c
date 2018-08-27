@@ -162,7 +162,7 @@ int encode( PyObject *o, Encoder *e ) {
     long long i = PyLong_AsLongLongAndOverflow(o, &overflow);
     if (i == -1 && PyErr_Occurred()) return 0;
     if (overflow == 0) {
-      if ( i > 0 ) {
+      if ( i >= 0 ) {
         do *s++ = (char)(48 + (i % 10ULL)); while(i /= 10ULL); 
       } else {
         i *= -1;
@@ -284,7 +284,6 @@ int encode( PyObject *o, Encoder *e ) {
           l = PyUnicode_GET_SIZE(key);
 #endif
           if (key_str == NULL) return 0;
-          //printf("key len %d\n", l);
           if ( l <= 0 || l > UINT_MAX ) {
             PyErr_SetString(PyExc_TypeError, "Bad key string length");
             return 0;
@@ -306,7 +305,6 @@ int encode( PyObject *o, Encoder *e ) {
           const char* key_str = PyString_AS_STRING(key);
           l = PyString_GET_SIZE(key);
           if (key_str == NULL) return 0;
-          //printf("key len %d\n", l);
           if ( l <= 0 || l > UINT_MAX ) {
             PyErr_SetString(PyExc_TypeError, "Bad key string length");
             return 0;
@@ -323,8 +321,21 @@ int encode( PyObject *o, Encoder *e ) {
           *(e->s++) = ',';
         }
 #endif
-        else if (!e->skipKeys) {
-          PyErr_SetString(PyExc_TypeError, "keys must be strings unless skipkeys is true");
+        else if (PyLong_Check(key)) {
+          *(e->s++) = '"';
+          encode(key, e);
+          *(e->s++) = '"';
+          *(e->s++) = ':';
+          if (Py_EnterRecursiveCall(" while JSONifying dict object")) return 0;
+          int r = encode(item, e);
+          Py_LeaveRecursiveCall();
+          if (!r) return 0;
+          *(e->s++) = ',';
+        }
+        //else if (!e->skipKeys) {
+          //PyErr_SetString(PyExc_TypeError, "keys must be strings or numbers unless skipkeys is true");
+        else {
+          PyErr_SetString(PyExc_TypeError, "keys must be strings or numbers");
           return 0;
         }
       }
@@ -336,7 +347,6 @@ int encode( PyObject *o, Encoder *e ) {
     }
   }
   else {
-    //printf("Unknown type!\n");
 
     // TODO Check __json__, to_dict, toDict, _asDict
     if (PyObject_HasAttrString(o, "__json__"))
@@ -430,7 +440,6 @@ PyObject* toJson(PyObject* self, PyObject *args, PyObject *kwargs) {
     enc.indent = -1;
   } else {
     enc.indent = PyLong_AsLong(oindent);
-    //if ( PyErr_Occurred() == NULL ) printf("no err yet\n");
   }
 
   //if (oencodeHTMLChars != NULL && PyObject_IsTrue(oencodeHTMLChars)) encoder.encodeHTMLChars = 1;

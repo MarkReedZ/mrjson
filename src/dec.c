@@ -323,7 +323,6 @@ JSOBJ jsonParse(char *s, char **endptr, size_t len) {
       case '\0':
         continue;
       default:
-        //printf("end >%c<\n", *s);
         return SetErrorInt("Unexpected character at pos ",s-s_start-1);
     }
     separator = false;
@@ -399,7 +398,8 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
         } else {
           b0 = _mm256_loadu_si256((__m256i *)(buf + 32*0));
           b1 = _mm256_loadu_si256((__m256i *) (tmpbuf));
-          quoteBitMap[bmidx] = _mm256_movemask_epi8(_mm256_cmpeq_epi8(rrq, b0)) ^ ((unsigned long)_mm256_movemask_epi8(_mm256_cmpeq_epi8(rrq, b1))<<32);
+        
+          quoteBitMap[bmidx] = (_mm256_movemask_epi8(_mm256_cmpeq_epi8(rrq, b0))&0xffffffffull) | ((unsigned long)_mm256_movemask_epi8(_mm256_cmpeq_epi8(rrq, b1))<<32);
           __m256i is0_or_esc0 = _mm256_or_si256(_mm256_cmpeq_epi8(rr0, b0),_mm256_cmpeq_epi8(rr_esc, b0));
           __m256i is0_or_esc1 = _mm256_or_si256(_mm256_cmpeq_epi8(rr0, b1),_mm256_cmpeq_epi8(rr_esc, b1));
           __m256i q0 = _mm256_or_si256(_mm256_cmpgt_epi8(rr0, b0), is0_or_esc0);
@@ -661,7 +661,6 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
       case '\0':
         continue;
       default:
-        //printf("end >%c<\n", *s);
         free(quoteBitMap); free(nonAsciiBitMap);
         return SetErrorInt("Unexpected character at pos ",s-s_start-1);
     }
