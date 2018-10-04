@@ -125,18 +125,26 @@ static int doStringNoEscapes (Encoder *e, const char *str, const char *end)
   }
 }
 
+#define CHAR4_INT(a, b, c, d)         \
+   (unsigned int)((d << 24) | (c << 16) | (b << 8) | a)
+
+#define CHAR8_LONG(a, b, c, d, e, f, g, h)       \
+   (((long)h << 56) | ((long)g << 48) | ((long)f << 40)   \
+    | ((long)e << 32) | (d << 24) | (c << 16) | (b << 8) | a)
+
+
 int encode( PyObject *o, Encoder *e ) {
   resizeBufferIfNeeded(e,2048);
 
   // TODO Would reordering speed this up?
   if ( o == Py_None ) {
-    *(e->s++) = 'n'; *(e->s++) = 'u'; *(e->s++) = 'l'; *(e->s++) = 'l';
+    *((unsigned int*)e->s) = CHAR4_INT('n','u','l','l'); e->s += 4;
   }
   else if ( PyBool_Check(o) ) {
     if ( o == Py_True ) {
-    *(e->s++) = 't'; *(e->s++) = 'r'; *(e->s++) = 'u'; *(e->s++) = 'e';
+      *((unsigned int*)e->s) = CHAR4_INT('t','r','u','e'); e->s += 4;
     } else {
-    *(e->s++) = 'f'; *(e->s++) = 'a'; *(e->s++) = 'l'; *(e->s++) = 's'; *(e->s++) = 'e';
+      *((unsigned long*)e->s) = CHAR8_LONG('f','a','l','s','e','a','a','a'); e->s += 5;
     }
   }
   else if ( PyFloat_Check(o) ) {
@@ -148,9 +156,9 @@ int encode( PyObject *o, Encoder *e ) {
     else if ( IS_INF(d) ) {
       if ( d < 0 ) {
         *(e->s++) = '-';
-        *(e->s++) = 'I'; *(e->s++) = 'n'; *(e->s++) = 'f'; *(e->s++) = 'i'; *(e->s++) = 'n'; *(e->s++) = 'i'; *(e->s++) = 't'; *(e->s++) = 'y';
+        *((unsigned long*)e->s) = CHAR8_LONG('I','n','f','i','n','i','t','y'); e->s += 8;
       } else {
-        *(e->s++) = 'I'; *(e->s++) = 'n'; *(e->s++) = 'f'; *(e->s++) = 'i'; *(e->s++) = 'n'; *(e->s++) = 'i'; *(e->s++) = 't'; *(e->s++) = 'y';
+        *((unsigned long*)e->s) = CHAR8_LONG('I','n','f','i','n','i','t','y'); e->s += 8;
       }
     } else {
       e->s = dtoa(d, e->s, 324);
