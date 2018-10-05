@@ -12,6 +12,14 @@
 
 static char errmsg[256];
 
+void printErr(void) {
+  PyObject *type, *value, *traceback;
+  PyErr_Fetch(&type, &value, &traceback);
+  printf("Unhandled exception :\n");
+  PyObject_Print( type, stdout, 0 ); printf("\n");
+  PyObject_Print( value, stdout, 0 ); printf("\n");
+}
+
 static inline bool _isspace(char c) {
     return (bool)(c == ' ') || (c >= '\t' && c <= '\r');
 }
@@ -70,22 +78,40 @@ static PyObject* parseNumber(char *s, char **outptr) {
     flt = true;
     ++s;
 
-    double base = 10;
+    bool neg = false;
     if (*s == '+')
       ++s;
     else if (*s == '-') {
       ++s;
-      base = 0.1;
+      neg = true;
     }
 
     unsigned int exponent = 0;
     while (_isdigit(*s)) exponent = (exponent * 10) + (*s++ - '0');
 
-    double power = 1;
-    for (; exponent; exponent >>= 1, base *= base)
-        if (exponent & 1) power *= base;
+    if ( neg ) {
 
-    d *= power;
+      if ( exponent & ~0x1FF ) { *outptr = s; return PyFloat_FromDouble( 0 ); }
+  
+      double power = 1.0;
+      static double btab[9] = { 0.1, 0.01, 0.0001, 1e-8, 1e-16, 1e-32, 1e-64, 1e-128, 1e-256 };
+      int num = 0;
+      for (; exponent; exponent >>= 1, num += 1 )
+        if (exponent & 1) power *= btab[num];
+      d *= power;
+
+    } else {
+    
+      if ( exponent & ~0x1FF ) { *outptr = s; return PyFloat_FromDouble( INFINITY ); }
+  
+      double power = 1.0;
+      static double btab[9] = { 10.0, 100.0, 10000.0, 1e8, 1e16, 1e32, 1e64, 1e128, 1e256 };
+      int num = 0;
+      for (; exponent; exponent >>= 1, num += 1 )
+        if (exponent & 1) power *= btab[num];
+      d *= power;
+
+    }
   }
 
   *outptr = s;
@@ -240,6 +266,7 @@ JSOBJ jsonParse(char *s, char **endptr, size_t len) {
                    c = 0;
                     // \ud8XX\udcXX
                     if ( s[1] == 'd' && s[2] == '8' ) {
+                      if ( s[5] != '\\' ) return SetErrorInt("Invalid lonely surrogate \\ud800 at ", s-s_start-2);
                       unsigned long tmp = (char2int(s[8])<<8 | char2int(s[9])<<4 | char2int(s[10])) - 0xC00;
                       unsigned long wc = 0x10000 | char2int(s[3])<<14 | char2int(s[4])<<10 | tmp;
                       *it++ = ( 0xf0 | (wc >> 18) );
@@ -282,6 +309,7 @@ JSOBJ jsonParse(char *s, char **endptr, size_t len) {
             } else if (c == '"') {
               *it = 0;
               o = PyUnicode_FromStringAndSize(string_start, (it - string_start));
+              if ( o == NULL ) return NULL;
               ++s;
               break;
             }
@@ -458,6 +486,7 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
       ++s;
       if (!*s) break;
     }
+    //printf(">%.*s\n",4, s);
     *endptr = s++;
     switch (**endptr) {
       case '-':
@@ -576,7 +605,7 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
                     c = 0;
                     // \ud8XX\udcXX
                     if ( s[1] == 'd' && s[2] == '8' ) {
-                      //TODO Error checking
+                      if ( s[5] != '\\' ) return SetErrorInt("Invalid lonely surrogate \\ud800 at ", s-s_start-2); 
                       unsigned long tmp = (char2int(s[8])<<8 | char2int(s[9])<<4 | char2int(s[10])) - 0xC00;
                       unsigned long wc = 0x10000 | char2int(s[3])<<14 | char2int(s[4])<<10 | tmp;
                       *it++ = ( 0xf0 | (wc >> 18) );
@@ -620,10 +649,12 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
             } else if (c == '"') {
               *it = 0;
               o = PyUnicode_FromStringAndSize(string_start, (it - string_start));
+              if ( o == NULL ) return NULL;
               ++s;
               break;
             }
         }
+        if ( o == NULL ) return SetErrorInt("Unterminated string starting at ", string_start-s_start-1);
         if (!isdelim(*s)) {
             *endptr = s;
             return SetError("JSON_BAD_STRING");
@@ -682,13 +713,14 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
       keys[pos] = NULL;
     } else {
       PyList_Append(tails[pos], o);
-      Py_DECREF( (PyObject *) o);
+      Py_XDECREF( (PyObject *) o);
+      //printErr();
     }
     //tails[pos]->value = o;
   }
   free(quoteBitMap);
   free(nonAsciiBitMap);
-  return SetError("JSON_UNEXPECTED_END");
+  return SetError("Unexpected end of json string - could be a bad utf-8 encoding or check your [,{,\"");
 }
 #endif
 

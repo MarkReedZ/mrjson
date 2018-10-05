@@ -60,7 +60,7 @@ static inline void reverse(char* begin, char* end)
 static int doStringNoEscapes (Encoder *e, const char *str, const char *end)
 {
   char *of = e->s;
-  if ( (end-str) == 0 ) printf("passed 0 len string?\n");
+  if ( (end-str) == 0 ) return; //printf("passed 0 len string?\n");
 
   for (;;)
   {
@@ -138,20 +138,24 @@ int encode( PyObject *o, Encoder *e ) {
 
   // TODO Would reordering speed this up?
   if ( o == Py_None ) {
-    *((unsigned int*)e->s) = CHAR4_INT('n','u','l','l'); e->s += 4;
+    // memcpy is faster for 4 byte strings and slower for 5-8
+    //*((unsigned int*)e->s) = CHAR4_INT('n','u','l','l'); e->s += 4;
+    memcpy( e->s, "null", 4 ); e->s += 4;
   }
   else if ( PyBool_Check(o) ) {
     if ( o == Py_True ) {
-      *((unsigned int*)e->s) = CHAR4_INT('t','r','u','e'); e->s += 4;
+      //*((unsigned int*)e->s) = CHAR4_INT('t','r','u','e'); e->s += 4;
+      memcpy( e->s, "true", 4 ); e->s += 4;
     } else {
-      *((unsigned long*)e->s) = CHAR8_LONG('f','a','l','s','e','a','a','a'); e->s += 5;
+      *((unsigned long*)e->s) = CHAR8_LONG('f','a','l','s','e',0,0,0); e->s += 5;
+      //memcpy( e->s, "false", 5 ); e->s += 5;
     }
   }
   else if ( PyFloat_Check(o) ) {
     double d = PyFloat_AsDouble(o);
     if (d == -1.0 && PyErr_Occurred()) return 0;
     if (IS_NAN(d)) {
-      *(e->s++) = 'N'; *(e->s++) = 'a'; *(e->s++) = 'N';
+      *((unsigned int*)e->s) = CHAR4_INT('N','a','N',0); e->s += 3;
     }
     else if ( IS_INF(d) ) {
       if ( d < 0 ) {
@@ -159,6 +163,7 @@ int encode( PyObject *o, Encoder *e ) {
         *((unsigned long*)e->s) = CHAR8_LONG('I','n','f','i','n','i','t','y'); e->s += 8;
       } else {
         *((unsigned long*)e->s) = CHAR8_LONG('I','n','f','i','n','i','t','y'); e->s += 8;
+        //memcpy( e->s, "Infinity", 8 ); e->s += 8; 
       }
     } else {
       e->s = dtoa(d, e->s, 324);
@@ -178,6 +183,8 @@ int encode( PyObject *o, Encoder *e ) {
         *s++ = '-';
       }
     } else {
+
+      // TODO '[-123123123123123123123123123123]' [100000000000000000000] if overflow try PyLong_AsDouble
       unsigned long long ui = PyLong_AsUnsignedLongLong(o);
       if (PyErr_Occurred()) return 0;
       do *s++ = (char)(48 + (ui % 10ULL)); while(ui /= 10ULL);
@@ -292,7 +299,7 @@ int encode( PyObject *o, Encoder *e ) {
           l = PyUnicode_GET_SIZE(key);
 #endif
           if (key_str == NULL) return 0;
-          if ( l <= 0 || l > UINT_MAX ) {
+          if ( l < 0 || l > UINT_MAX ) {
             PyErr_SetString(PyExc_TypeError, "Bad key string length");
             return 0;
           }

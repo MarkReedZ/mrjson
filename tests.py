@@ -1,6 +1,7 @@
 # coding=UTF-8
 
 import mrjson as j
+import json
 import inspect
 
 def raises( o, f, exc,details ):
@@ -87,9 +88,10 @@ for o in objs:
 
 print("Testing Exceptions..")
 raises( "NaNd",         j.loads, ValueError, "Expecting 'NaN' at pos 0" )
-raises( "[",            j.loads, ValueError, "JSON_UNEXPECTED_END" )
+raises( '"',            j.loads, ValueError, "Unterminated string starting at 0")
+raises( "[",            j.loads, ValueError,  "Unexpected end of json string - could be a bad utf-8 encoding or check your [,{,\"")
 raises( "]",            j.loads, ValueError, "Closing bracket ']' without an opening bracket at pos 0" )
-raises( "{",            j.loads, ValueError, "JSON_UNEXPECTED_END" )
+raises( "{",            j.loads, ValueError,  "Unexpected end of json string - could be a bad utf-8 encoding or check your [,{,\"")
 raises( "}",            j.loads, ValueError, "Closing bracket '}' without an opening bracket at pos 0")
 raises( "[1,2,,]",      j.loads, ValueError, "Unexpected character ',' at pos 5")
 raises( "[1,z]",        j.loads, ValueError, "Unexpected character at pos 3")
@@ -125,5 +127,28 @@ class JSONTest:
   def __json__(self):
     return '{"k":"v"}'
 eq( j.dumps({u'key': JSONTest()}),'{"key":{"k":"v"}}')
+
+print("Trying JSONTestSuite")
+from os import walk
+for (dirpath, dirnames, filenames) in walk("test_data"):
+  for fn in filenames:
+    if not "invalid" in fn: continue
+    f = open( "test_data/"+fn,"rb")
+    try:
+      #print(fn)
+      o = j.load(f)
+    except Exception as e:
+      if fn[0] != 'n':
+        print( "ERROR",str(e), fn )
+      continue
+
+    try:
+      eq( o, j.loads(j.dumps(o)) )
+      if fn[0] == 'n':
+        print( "ERROR Should have thrown an exception:", fn )
+    except Exception as e:
+      if fn[0] != 'n':
+        print( "ERROR",str(e), o, fn )
+
 
 print("Done")
