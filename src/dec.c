@@ -7,8 +7,7 @@
 #include <immintrin.h>
 #endif
 
-#define JSON_ZONE_SIZE 4096
-#define JSON_STACK_SIZE 32
+#define JSON_MAX_DEPTH 32
 
 static char errmsg[256];
 
@@ -20,25 +19,13 @@ void printErr(void) {
   PyObject_Print( value, stdout, 0 ); printf("\n");
 }
 
-static inline bool _isspace(char c) {
-    return (bool)(c == ' ') || (c >= '\t' && c <= '\r');
-}
-
-static inline bool isdelim(char c) {
-    return c == ',' || c == ':' || c == ']' || c == '}' || _isspace(c) || !c;
-}
-
-static inline bool _isdigit(char c) {
-    return c >= '0' && c <= '9';
-}
-
-static inline bool _isxdigit(char c) {
-    return (c >= '0' && c <= '9') || ((c & ~' ') >= 'A' && (c & ~' ') <= 'F');
-}
+static inline bool _isspace(char c)  { return (c == ' ') || (c >= '\t' && c <= '\r'); }
+static inline bool _isdelim(char c)  { return  c == ','  || c == ':' || c == ']' || c == '}' || _isspace(c) || !c; }
+static inline bool _isdigit(char c)  { return  c >= '0'  && c <= '9'; }
+static inline bool _isxdigit(char c) { return (c >= '0'  && c <= '9') || ((c & ~' ') >= 'A' && (c & ~' ') <= 'F'); }
 
 static inline int char2int(char c) {
-    if (c <= '9')
-        return c - '0';
+    if (c <= '9') return c - '0';
     return (c & ~' ') - 'A' + 10;
 }
 
@@ -53,6 +40,7 @@ static PyObject* parseNumber(char *s, char **outptr) {
   double d;
   int cnt = 16;
   while (_isdigit(*s) && (--cnt != 0)) l = (l * 10) + (*s++ - '0');
+
   // We're done unless its a float, exponent, or is too big: 1.2, 10e5, or more than 16 digits
   if ( cnt != 0 && *s != '.' && *s != 'e' && *s != 'E' ) {
     *outptr = s;
@@ -91,7 +79,7 @@ static PyObject* parseNumber(char *s, char **outptr) {
 
     if ( neg ) {
 
-      if ( exponent & ~0x1FF ) { *outptr = s; return PyFloat_FromDouble( 0 ); }
+      if ( exponent & ~0x1FF ) { *outptr = s; return PyFloat_FromDouble( 0 ); } // 1e-512 is 0
   
       double power = 1.0;
       static double btab[9] = { 0.1, 0.01, 0.0001, 1e-8, 1e-16, 1e-32, 1e-64, 1e-128, 1e-256 };
@@ -102,7 +90,7 @@ static PyObject* parseNumber(char *s, char **outptr) {
 
     } else {
     
-      if ( exponent & ~0x1FF ) { *outptr = s; return PyFloat_FromDouble( INFINITY ); }
+      if ( exponent & ~0x1FF ) { *outptr = s; return PyFloat_FromDouble( INFINITY ); } // 1e512 is infinity?
   
       double power = 1.0;
       static double btab[9] = { 10.0, 100.0, 10000.0, 1e8, 1e16, 1e32, 1e64, 1e128, 1e256 };
@@ -134,12 +122,12 @@ static unsigned long TZCNT(unsigned long long in) {
 }
 #endif
 
-static JSOBJ SetError(const char *message)
+static PyObject* SetError(const char *message)
 {
   PyErr_Format (PyExc_ValueError, "%s", message);
   return NULL;
 }
-static JSOBJ SetErrorInt(const char *message, int pos)
+static PyObject* SetErrorInt(const char *message, int pos)
 {
   char pstr[32];
   sprintf( pstr, "%d", pos );
@@ -149,27 +137,10 @@ static JSOBJ SetErrorInt(const char *message, int pos)
   return NULL;
 }
 
-
-static JSOBJ newTrue(void)
-{
-  Py_RETURN_TRUE;
-}
-
-static JSOBJ newFalse(void)
-{
-  Py_RETURN_FALSE;
-}
-
-static JSOBJ newNull(void)
-{
-  Py_RETURN_NONE;
-}
-
-
-JSOBJ jsonParse(char *s, char **endptr, size_t len) {
-  JSOBJ tails[JSON_STACK_SIZE];
-  JsonTag tags[JSON_STACK_SIZE];
-  JSOBJ keys[JSON_STACK_SIZE];
+PyObject* jsonParse(char *s, char **endptr, size_t len) {
+  PyObject* tails[JSON_MAX_DEPTH];
+  JsonTag tags[JSON_MAX_DEPTH];
+  PyObject* keys[JSON_MAX_DEPTH];
   char *string_start;
   char *s_start = s;
   char *end = s+len;
@@ -186,8 +157,7 @@ JSOBJ jsonParse(char *s, char **endptr, size_t len) {
     switch (**endptr) {
       case '-':
         if (s[0] == 'I') {
-          if (!(s[1] == 'n' && s[2] == 'f' && ((end-s)==8 || isdelim(s[8])))) return SetErrorInt("Expecting '-Infinity' at pos ",s-s_start-1);
-          //o = PyFloat_FromString("-Inf");
+          if (!(s[1] == 'n' && s[2] == 'f' && ((end-s)==8 || _isdelim(s[8])))) return SetErrorInt("Expecting '-Infinity' at pos ",s-s_start-1);
           o = PyFloat_FromDouble(-Py_HUGE_VAL);
           s += 8;
           break;
@@ -199,33 +169,33 @@ JSOBJ jsonParse(char *s, char **endptr, size_t len) {
       case '0': case '1': case '2': case '3': case '4':
       case '5': case '6': case '7': case '8': case '9':
         o = parseNumber(*endptr, &s);
-        if (!isdelim(*s)) {
+        if (!_isdelim(*s)) {
           *endptr = s;
           return SetErrorInt("A number must be followed by a delimiter at pos ", s-s_start-1);
         }
         break;
       case ']':
-        if (pos == -1) return SetErrorInt("Closing bracket ']' without an opening bracket at pos ", s-s_start-1);
-        if (tags[pos] != JSON_ARRAY) return SetError("JSON_MISMATCH_BRACKET;");
+        if (pos == -1)               return SetErrorInt("Closing bracket ']' without an opening bracket at pos ", s-s_start-1);
+        if (tags[pos] != JSON_ARRAY) return SetErrorInt("Mismatched closing bracket, expected a } at pos ", s-s_start-1);
         o = tails[pos];
         pos--;
         break;
       case '[':
-        if (++pos == JSON_STACK_SIZE) return SetErrorInt("Too many nested objects, the max depth is ", JSON_STACK_SIZE);
+        if (++pos == JSON_MAX_DEPTH) return SetErrorInt("Too many nested objects, the max depth is ", JSON_MAX_DEPTH);
         tails[pos] = PyList_New(0);
         tags[pos]  = JSON_ARRAY;
         keys[pos]  = NULL;
         separator  = true;
         continue;
       case '}':
-        if (pos == -1) return SetErrorInt("Closing bracket '}' without an opening bracket at pos ", s-s_start-1);
+        if (pos == -1)                return SetErrorInt("Closing bracket '}' without an opening bracket at pos ", s-s_start-1);
         if (tags[pos] != JSON_OBJECT) return SetErrorInt("Closing bracket '}' without an opening bracket at pos ", s-s_start-1);
-        if (keys[pos] != NULL) return SetErrorInt("Expected a \"key\":value, but got a closing bracket '}' at pos ", s-s_start-1);
+        if (keys[pos] != NULL)        return SetErrorInt("Expected a \"key\":value, but got a closing bracket '}' at pos ", s-s_start-1);
         o = tails[pos];
         pos--;
         break;
       case '{':
-        if (++pos == JSON_STACK_SIZE) return SetErrorInt("Too many nested objects, the max depth is ", JSON_STACK_SIZE);
+        if (++pos == JSON_MAX_DEPTH) return SetErrorInt("Too many nested objects, the max depth is ", JSON_MAX_DEPTH);
         tails[pos] = PyDict_New();
         tags[pos] = JSON_OBJECT;
         keys[pos] = NULL;
@@ -236,6 +206,7 @@ JSOBJ jsonParse(char *s, char **endptr, size_t len) {
         separator = true;
         continue;
       case '"':
+        o = NULL;
         string_start = s;
         for (char *it = s; *s; ++it, ++s) {
             int c = *it = *s;
@@ -301,11 +272,10 @@ JSOBJ jsonParse(char *s, char **endptr, size_t len) {
                     char tmpmsg[128] = "Unexpected escape character 'Z' at pos ";
                     tmpmsg[29] = c;
                     return SetErrorInt(tmpmsg, s-s_start-1);
-                    //return SetError("JSON_BAD_STRING");
                 }
             } else if ((unsigned int)c < ' ' || c == '\x7F') {
               *endptr = s;
-              return SetError("JSON_BAD_STRING");
+              return SetErrorInt("Invalid control characters in string at pos ", s-s_start-1);
             } else if (c == '"') {
               *it = 0;
               o = PyUnicode_FromStringAndSize(string_start, (it - string_start));
@@ -314,33 +284,30 @@ JSOBJ jsonParse(char *s, char **endptr, size_t len) {
               break;
             }
         }
-        if (!isdelim(*s)) {
-            *endptr = s;
-            return SetError("JSON_BAD_STRING");
-        }
+        if ( o == NULL ) return SetErrorInt("Unterminated string starting at ", string_start-s_start-1);
         break;
       case 't':
-        if (!(s[0] == 'r' && s[1] == 'u' && s[2] == 'e' && ((end-s)==3 || isdelim(s[3])))) return SetErrorInt("Expecting 'true' at pos ",s-s_start-1);
-        o = newTrue();
+        if (!(s[0] == 'r' && s[1] == 'u' && s[2] == 'e' && ((end-s)==3 || _isdelim(s[3])))) return SetErrorInt("Expecting 'true' at pos ",s-s_start-1);
+        o = Py_True; Py_INCREF(Py_True);
         s += 3;
         break;
       case 'f':
-        if (!(s[0] == 'a' && s[1] == 'l' && s[2] == 's' && s[3] == 'e' && ((end-s)==4 || isdelim(s[4])))) return SetErrorInt("Expecting 'false' at pos ",s-s_start-1);
-        o = newFalse();
+        if (!(s[0] == 'a' && s[1] == 'l' && s[2] == 's' && s[3] == 'e' && ((end-s)==4 || _isdelim(s[4])))) return SetErrorInt("Expecting 'false' at pos ",s-s_start-1);
+        o = Py_False; Py_INCREF(Py_False);
         s += 4;
         break;
       case 'n':
-        if (!(s[0] == 'u' && s[1] == 'l' && s[2] == 'l' && ((end-s)==3 || isdelim(s[3])))) return SetErrorInt("Expecting 'null' at pos ",s-s_start-1);
-        o = newNull();
+        if (!(s[0] == 'u' && s[1] == 'l' && s[2] == 'l' && ((end-s)==3 || _isdelim(s[3])))) return SetErrorInt("Expecting 'null' at pos ",s-s_start-1);
+        o = Py_None; Py_INCREF(Py_None);
         s += 3;
         break;
       case 'N':
-        if (!(s[0] == 'a' && s[1] == 'N' && ((end-s)==2 || isdelim(s[2])))) return SetErrorInt("Expecting 'NaN' at pos ",s-s_start-1);
+        if (!(s[0] == 'a' && s[1] == 'N' && ((end-s)==2 || _isdelim(s[2])))) return SetErrorInt("Expecting 'NaN' at pos ",s-s_start-1);
         o = PyFloat_FromDouble(Py_NAN);
         s += 2;
         break;
       case 'I': // Infinity
-        if (!(s[0] == 'n' && s[1] == 'f' && ((end-s)==7 || isdelim(s[7])))) return SetErrorInt("Expecting 'Inf' at pos ",s-s_start-1);
+        if (!(s[0] == 'n' && s[1] == 'f' && ((end-s)==7 || _isdelim(s[7])))) return SetErrorInt("Expecting 'Inf' at pos ",s-s_start-1);
         o = PyFloat_FromDouble(Py_HUGE_VAL);
         s += 7;
         break;
@@ -351,6 +318,7 @@ JSOBJ jsonParse(char *s, char **endptr, size_t len) {
       case '\0':
         continue;
       default:
+        if ( keys[pos] != NULL && !separator ) return SetErrorInt("Expecting a : after an object key at pos ",s-s_start-1);
         return SetErrorInt("Unexpected character at pos ",s-s_start-1);
     }
     separator = false;
@@ -360,8 +328,7 @@ JSOBJ jsonParse(char *s, char **endptr, size_t len) {
     }
     if (tags[pos] == JSON_OBJECT) {
       if (!keys[pos]) {
-        //if (o.getTag() != JSON_STRING) return JSON_UNQUOTED_KEY;
-        keys[pos] = o; //PyUnicode_FromStringAndSize (start, (end - start));
+        keys[pos] = o;
         continue;
       }
       PyDict_SetItem (tails[pos], keys[pos], o);
@@ -372,16 +339,15 @@ JSOBJ jsonParse(char *s, char **endptr, size_t len) {
       PyList_Append(tails[pos], o);
       Py_DECREF( (PyObject *) o);
     }
-    //tails[pos]->value = o;
   }
-  return SetError("JSON_UNEXPECTED_END");
+  return SetError("Unexpected end of json string - could be a bad utf-8 encoding or check your [,{,\"");
 }
 
 #ifdef __AVX2__
-JSOBJ jParse(char *s, char **endptr, size_t len) {
-  JSOBJ tails[JSON_STACK_SIZE];
-  JsonTag tags[JSON_STACK_SIZE];
-  JSOBJ keys[JSON_STACK_SIZE];
+PyObject* jParse(char *s, char **endptr, size_t len) {
+  PyObject* tails[JSON_MAX_DEPTH];
+  JsonTag tags[JSON_MAX_DEPTH];
+  PyObject* keys[JSON_MAX_DEPTH];
   char *string_start;
   int pos = -1;
   bool separator = true;
@@ -491,7 +457,7 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
     switch (**endptr) {
       case '-':
         if (s[0] == 'I') {
-          if (!(s[1] == 'n' && s[2] == 'f' && ((end-s)==8 || isdelim(s[8])))) return SetErrorInt("Expecting '-Infinity' at pos ",s-s_start-1);
+          if (!(s[1] == 'n' && s[2] == 'f' && ((end-s)==8 || _isdelim(s[8])))) return SetErrorInt("Expecting '-Infinity' at pos ",s-s_start-1);
           //o = PyFloat_FromString("-Inf");
           o = PyFloat_FromDouble(-Py_HUGE_VAL);
           s += 8;
@@ -505,34 +471,34 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
       case '0': case '1': case '2': case '3': case '4':
       case '5': case '6': case '7': case '8': case '9':
         o = parseNumber(*endptr, &s);
-        if (!isdelim(*s)) {
+        if (!_isdelim(*s)) {
           *endptr = s;
           free(quoteBitMap); free(nonAsciiBitMap);
           return SetErrorInt("A number must be followed by a delimiter at pos ", s-s_start-1);
         }
         break;
       case ']':
-        if (pos == -1) return SetErrorInt("Closing bracket ']' without an opening bracket at pos ", s-s_start-1);
-        if (tags[pos] != JSON_ARRAY) return SetError("Mismatched closing bracket, expected a }");
+        if (pos == -1)               return SetErrorInt("Closing bracket ']' without an opening bracket at pos ", s-s_start-1);
+        if (tags[pos] != JSON_ARRAY) return SetErrorInt("Mismatched closing bracket, expected a } at pos ", s-s_start-1);
         o = tails[pos];
         pos--;
         break;
       case '[':
-        if (++pos == JSON_STACK_SIZE) return SetErrorInt("Too many nested objects, the max depth is ", JSON_STACK_SIZE);
+        if (++pos == JSON_MAX_DEPTH) return SetErrorInt("Too many nested objects, the max depth is ", JSON_MAX_DEPTH);
         tails[pos] = PyList_New(0);
         tags[pos]  = JSON_ARRAY;
         keys[pos]  = NULL;
         separator  = true;
         continue;
       case '}':
-        if (pos == -1) return SetErrorInt("Closing bracket '}' without an opening bracket at pos ", s-s_start-1);
+        if (pos == -1)                return SetErrorInt("Closing bracket '}' without an opening bracket at pos ", s-s_start-1);
         if (tags[pos] != JSON_OBJECT) return SetErrorInt("Closing bracket '}' without an opening bracket at pos ", s-s_start-1);
-        if (keys[pos] != NULL) return SetErrorInt("Expected a \"key\":value, but got a closing bracket '}' at pos ", s-s_start-1);
+        if (keys[pos] != NULL)        return SetErrorInt("Expected a \"key\":value, but got a closing bracket '}' at pos ", s-s_start-1);
         o = tails[pos];
         pos--;
         break;
       case '{':
-        if (++pos == JSON_STACK_SIZE) return SetErrorInt("Too many nested objects, the max depth is ", JSON_STACK_SIZE);
+        if (++pos == JSON_MAX_DEPTH) return SetErrorInt("Too many nested objects, the max depth is ", JSON_MAX_DEPTH);
         tails[pos] = PyDict_New();
         tags[pos] = JSON_OBJECT;
         keys[pos] = NULL;
@@ -575,6 +541,7 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
           s += slen+1;
           break;
         }
+        o = NULL;
         string_start = s;
         for (char *it = s; *s; ++it, ++s) {
             int c = *it = *s;
@@ -645,7 +612,7 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
             } else if ((unsigned int)c < ' ' || c == '\x7F') {
               *endptr = s;
               free(quoteBitMap); free(nonAsciiBitMap);
-              return SetError("JSON_BAD_STRING");
+              return SetErrorInt("Invalid control characters in string at pos ", s-s_start-1);
             } else if (c == '"') {
               *it = 0;
               o = PyUnicode_FromStringAndSize(string_start, (it - string_start));
@@ -655,33 +622,29 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
             }
         }
         if ( o == NULL ) return SetErrorInt("Unterminated string starting at ", string_start-s_start-1);
-        if (!isdelim(*s)) {
-            *endptr = s;
-            return SetError("JSON_BAD_STRING");
-        }
         break;
       case 't':
-        if (!(s[0] == 'r' && s[1] == 'u' && s[2] == 'e' && ((end-s)==3 || isdelim(s[3])))) return SetErrorInt("Expecting 'true' at pos ",s-s_start-1);
-        o = newTrue();
+        if (!(s[0] == 'r' && s[1] == 'u' && s[2] == 'e' && ((end-s)==3 || _isdelim(s[3])))) return SetErrorInt("Expecting 'true' at pos ",s-s_start-1);
+        o = Py_True; Py_INCREF(Py_True);
         s += 3;
         break;
       case 'f':
-        if (!(s[0] == 'a' && s[1] == 'l' && s[2] == 's' && s[3] == 'e' && ((end-s)==4 || isdelim(s[4])))) return SetErrorInt("Expecting 'false' at pos ",s-s_start-1);
-        o = newFalse();
+        if (!(s[0] == 'a' && s[1] == 'l' && s[2] == 's' && s[3] == 'e' && ((end-s)==4 || _isdelim(s[4])))) return SetErrorInt("Expecting 'false' at pos ",s-s_start-1);
+        o = Py_False; Py_INCREF(Py_False);
         s += 4;
         break;
       case 'n':
-        if (!(s[0] == 'u' && s[1] == 'l' && s[2] == 'l' && ((end-s)==3 || isdelim(s[3])))) return SetErrorInt("Expecting 'null' at pos ",s-s_start-1);
-        o = newNull();
+        if (!(s[0] == 'u' && s[1] == 'l' && s[2] == 'l' && ((end-s)==3 || _isdelim(s[3])))) return SetErrorInt("Expecting 'null' at pos ",s-s_start-1);
+        o = Py_None; Py_INCREF(Py_None);
         s += 3;
         break;
       case 'N':
-        if (!(s[0] == 'a' && s[1] == 'N' && ((end-s)==2 || isdelim(s[2])))) return SetErrorInt("Expecting 'NaN' at pos ",s-s_start-1);
+        if (!(s[0] == 'a' && s[1] == 'N' && ((end-s)==2 || _isdelim(s[2])))) return SetErrorInt("Expecting 'NaN' at pos ",s-s_start-1);
         o = PyFloat_FromDouble(Py_NAN);
         s += 2;
         break;
       case 'I': // Infinity
-        if (!(s[0] == 'n' && s[1] == 'f' && ((end-s)==7 || isdelim(s[7])))) return SetErrorInt("Expecting 'Infinity' at pos ",s-s_start-1);
+        if (!(s[0] == 'n' && s[1] == 'f' && ((end-s)==7 || _isdelim(s[7])))) return SetErrorInt("Expecting 'Infinity' at pos ",s-s_start-1);
         o = PyFloat_FromDouble(Py_HUGE_VAL);
         s += 7;
         break;
@@ -693,6 +656,7 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
         continue;
       default:
         free(quoteBitMap); free(nonAsciiBitMap);
+        if ( keys[pos] != NULL && !separator ) return SetErrorInt("Expecting a : after an object key at pos ",s-s_start-1);
         return SetErrorInt("Unexpected character at pos ",s-s_start-1);
     }
     separator = false;
@@ -703,8 +667,7 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
     }
     if (tags[pos] == JSON_OBJECT) {
       if (!keys[pos]) {
-        //if (o.getTag() != JSON_STRING) return JSON_UNQUOTED_KEY;
-        keys[pos] = o; //PyUnicode_FromStringAndSize (start, (end - start));
+        keys[pos] = o; 
         continue;
       }
       PyDict_SetItem (tails[pos], keys[pos], o);
@@ -714,19 +677,16 @@ JSOBJ jParse(char *s, char **endptr, size_t len) {
     } else {
       PyList_Append(tails[pos], o);
       Py_XDECREF( (PyObject *) o);
-      //printErr();
     }
-    //tails[pos]->value = o;
   }
-  free(quoteBitMap);
-  free(nonAsciiBitMap);
+  free(quoteBitMap); free(nonAsciiBitMap);
   return SetError("Unexpected end of json string - could be a bad utf-8 encoding or check your [,{,\"");
 }
 #endif
 
 
 
-PyObject* fromJson(PyObject* self, PyObject *args, PyObject *kwargs)
+PyObject* loads(PyObject* self, PyObject *args, PyObject *kwargs)
 {
   static char *kwlist[] = {"obj", NULL};
   PyObject *ret;
@@ -757,15 +717,12 @@ PyObject* fromJson(PyObject* self, PyObject *args, PyObject *kwargs)
   ret = jsonParse(PyString_AS_STRING(sarg), &endptr, PyString_GET_SIZE(sarg));
 #endif
 
-  if (sarg != arg)
-  {
-    Py_DECREF(sarg);
-  }
+  if (sarg != arg) Py_DECREF(sarg);
 
   return ret;
 }
 
-PyObject* fromJsonBytes(PyObject* self, PyObject *args, PyObject *kwargs) {
+PyObject* loadb(PyObject* self, PyObject *args, PyObject *kwargs) {
   static char *kwlist[] = {"obj", NULL};
   PyObject *arg;
   PyObject *argtuple;
@@ -778,10 +735,10 @@ PyObject* fromJsonBytes(PyObject* self, PyObject *args, PyObject *kwargs) {
 
   arg = PyUnicode_FromEncodedObject( arg, "utf-8", "strict" );
   argtuple = PyTuple_Pack(1, arg);
-  return fromJson(self, argtuple, kwargs);
+  return loads(self, argtuple, kwargs);
 }
 
-PyObject* fromJsonFile(PyObject* self, PyObject *args, PyObject *kwargs)
+PyObject* load(PyObject* self, PyObject *args, PyObject *kwargs)
 { 
   PyObject *read;
   PyObject *string;
@@ -812,7 +769,7 @@ PyObject* fromJsonFile(PyObject* self, PyObject *args, PyObject *kwargs)
   
   argtuple = PyTuple_Pack(1, string);
  
-  ret = fromJson (self, argtuple, kwargs); 
+  ret = loads (self, argtuple, kwargs); 
   
   Py_XDECREF(argtuple);
   Py_XDECREF(string);

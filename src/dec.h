@@ -3,8 +3,8 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <assert.h>
+#include "Python.h"
 
-typedef void * JSOBJ;
 typedef char bool;
 enum { false, true };
 
@@ -19,8 +19,8 @@ enum JsonTag {
 };
 typedef enum JsonTag JsonTag;
 
-void *jsonParse(char *str, char **endptr, size_t len); //, char **endptr);
+PyObject *jsonParse(char *str, char **endptr, size_t len); //, char **endptr);
 #ifdef __AVX2Z__
-int jParse(char *str, int length, char **endptr, JsonValue *value);//, JsonAllocator &allocator);
+PyObject *jParse(char *str, int length, char **endptr, JsonValue *value);//, JsonAllocator &allocator);
 #endif
 

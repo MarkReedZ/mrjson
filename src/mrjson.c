@@ -4,23 +4,23 @@
 #define STRINGIFY(x) XSTRINGIFY(x)
 #define XSTRINGIFY(x) #x
 
-PyObject* toJson     (PyObject* self, PyObject *args, PyObject *kwargs);
-PyObject* toJsonFile (PyObject* self, PyObject *args, PyObject *kwargs);
-PyObject* toJsonBytes(PyObject* self, PyObject *args, PyObject *kwargs);
+PyObject* dump  (PyObject* self, PyObject *args, PyObject *kwargs);
+PyObject* dumps (PyObject* self, PyObject *args, PyObject *kwargs);
+PyObject* dumpb (PyObject* self, PyObject *args, PyObject *kwargs);
 
-PyObject* fromJson     (PyObject* self, PyObject *args, PyObject *kwargs);
-PyObject* fromJsonFile (PyObject* self, PyObject *args, PyObject *kwargs);
-PyObject* fromJsonBytes(PyObject* self, PyObject *args, PyObject *kwargs);
+PyObject* load  (PyObject* self, PyObject *args, PyObject *kwargs);
+PyObject* loads (PyObject* self, PyObject *args, PyObject *kwargs);
+PyObject* loadb (PyObject* self, PyObject *args, PyObject *kwargs);
 
 
 static PyMethodDef mrjsonMethods[] = {
-  {"dump",   (PyCFunction) toJsonFile,     METH_VARARGS | METH_KEYWORDS, "Encode an object as a json file" },
-  {"dumps",  (PyCFunction) toJson,         METH_VARARGS | METH_KEYWORDS, "Encode an object as a json string" },
-  {"dumpb",  (PyCFunction) toJsonBytes,    METH_VARARGS | METH_KEYWORDS, "Encode an object as json bytes"  },
+  {"dump",   (PyCFunction) dump,     METH_VARARGS | METH_KEYWORDS, "Encode an object as a json file" },
+  {"dumps",  (PyCFunction) dumps,    METH_VARARGS | METH_KEYWORDS, "Encode an object as a json string" },
+  {"dumpb",  (PyCFunction) dumpb,    METH_VARARGS | METH_KEYWORDS, "Encode an object as json bytes"  },
 
-  {"load",   (PyCFunction) fromJsonFile,   METH_VARARGS | METH_KEYWORDS, "Decode a json file" },
-  {"loads",  (PyCFunction) fromJson,       METH_VARARGS | METH_KEYWORDS, "Decode a json string" },
-  {"loadb",  (PyCFunction) fromJsonBytes,  METH_VARARGS | METH_KEYWORDS, "Decode a json byte string" },
+  {"load",   (PyCFunction) load,   METH_VARARGS | METH_KEYWORDS, "Decode a json file" },
+  {"loads",  (PyCFunction) loads,  METH_VARARGS | METH_KEYWORDS, "Decode a json string" },
+  {"loadb",  (PyCFunction) loadb,  METH_VARARGS | METH_KEYWORDS, "Decode a json byte string" },
   {NULL, NULL, 0, NULL}       /* Sentinel */
 };
 
@@ -59,7 +59,7 @@ PYMODINITFUNC
   if (m == NULL) { MODINITERROR; }
 
   PyModule_AddStringConstant(m, "__version__", STRINGIFY(MRJSON_VERSION));
-  PyModule_AddStringConstant(m, "__author__", "Mark Reed <mark@untilfluent.com>");
+  PyModule_AddStringConstant(m, "__author__", "Mark Reed <MarkReedZ@mail.com>");
 #if PY_MAJOR_VERSION >= 3
   return m;
 #endif

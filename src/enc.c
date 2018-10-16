@@ -13,9 +13,9 @@ typedef struct _encoder
   char *start, *end, *s;
   int depth;  
   int indent;
-  int skipKeys;
+  int skip_keys;
   int ensure_ascii;
-  int sortKeys;
+  int sort_keys;
 } Encoder;
 
 static int SetError(const char *message)
@@ -57,7 +57,7 @@ static inline void reverse(char* begin, char* end)
   }
 }
 
-static int doStringNoEscapes (Encoder *e, const char *str, const char *end)
+static void doStringNoEscapes (Encoder *e, const char *str, const char *end)
 {
   char *of = e->s;
   if ( (end-str) == 0 ) return; //printf("passed 0 len string?\n");
@@ -73,7 +73,7 @@ static int doStringNoEscapes (Encoder *e, const char *str, const char *end)
           break;
         } else {
           e->s += (of - e->s);
-          return 1;
+          return;
         }
       }
       case '\"': (*of++) = '\\'; (*of++) = '\"'; break;
@@ -86,28 +86,15 @@ static int doStringNoEscapes (Encoder *e, const char *str, const char *end)
 
       case '/':
       {
-        //if (e->escapeForwardSlashes)
-        //{
-          //(*of++) = '\\';
-          //(*of++) = '/';
-        //}
-        //else
-        //{
-          // Same as default case below.
         (*of++) = (*str);
-        //}
         break;
       }
       case 0x26: // '&'
       case 0x3c: // '<'
       case 0x3e: // '>'
       {
-        //if (e->encodeHTMLChars) {
-          // Fall through to \u00XX case below.
-        //} else {
         (*of++) = (*str);
         break;
-        //}
       }
       case 0x01: case 0x02: case 0x03: case 0x04: case 0x05: case 0x06: case 0x07: 
       case 0x0b:
@@ -136,38 +123,13 @@ static int doStringNoEscapes (Encoder *e, const char *str, const char *end)
 int encode( PyObject *o, Encoder *e ) {
   resizeBufferIfNeeded(e,2048);
 
-  // TODO Would reordering speed this up?
-  if ( o == Py_None ) {
-    // memcpy is faster for 4 byte strings and slower for 5-8
-    //*((unsigned int*)e->s) = CHAR4_INT('n','u','l','l'); e->s += 4;
-    memcpy( e->s, "null", 4 ); e->s += 4;
-  }
-  else if ( PyBool_Check(o) ) {
-    if ( o == Py_True ) {
-      //*((unsigned int*)e->s) = CHAR4_INT('t','r','u','e'); e->s += 4;
-      memcpy( e->s, "true", 4 ); e->s += 4;
-    } else {
-      *((unsigned long*)e->s) = CHAR8_LONG('f','a','l','s','e',0,0,0); e->s += 5;
-      //memcpy( e->s, "false", 5 ); e->s += 5;
-    }
-  }
-  else if ( PyFloat_Check(o) ) {
-    double d = PyFloat_AsDouble(o);
-    if (d == -1.0 && PyErr_Occurred()) return 0;
-    if (IS_NAN(d)) {
-      *((unsigned int*)e->s) = CHAR4_INT('N','a','N',0); e->s += 3;
-    }
-    else if ( IS_INF(d) ) {
-      if ( d < 0 ) {
-        *(e->s++) = '-';
-        *((unsigned long*)e->s) = CHAR8_LONG('I','n','f','i','n','i','t','y'); e->s += 8;
-      } else {
-        *((unsigned long*)e->s) = CHAR8_LONG('I','n','f','i','n','i','t','y'); e->s += 8;
-        //memcpy( e->s, "Infinity", 8 ); e->s += 8; 
-      }
-    } else {
-      e->s = dtoa(d, e->s, 324);
-    }
+  if ( o == Py_True ) {
+    //*((unsigned int*)e->s) = CHAR4_INT('t','r','u','e'); e->s += 4;
+    memcpy( e->s, "true", 4 ); e->s += 4;
+  } 
+  else if ( o == Py_False ) {
+    *((unsigned long*)e->s) = CHAR8_LONG('f','a','l','s','e',0,0,0); e->s += 5;
+    //memcpy( e->s, "false", 5 ); e->s += 5;
   }
   else if ( PyLong_Check(o) ) {
     char *s = e->s;
@@ -288,7 +250,7 @@ int encode( PyObject *o, Encoder *e ) {
     PyObject* key;
     PyObject* item;
 
-    if (1) { //!e->sortKeys) {
+    if (1) { //!e->sort_keys) {
       while (PyDict_Next(o, &pos, &key, &item)) {
         if (PyUnicode_Check(key)) {
           Py_ssize_t l;
@@ -306,8 +268,7 @@ int encode( PyObject *o, Encoder *e ) {
           resizeBufferIfNeeded(e,l);
           *(e->s++) = '\"';
           doStringNoEscapes(e, key_str, key_str+l);
-          *(e->s++) = '\"';
-          *(e->s++) = ':';
+          *(e->s++) = '\"'; *(e->s++) = ':';
           if (Py_EnterRecursiveCall(" while JSONifying dict object")) return 0;
           int r = encode(item, e);
           Py_LeaveRecursiveCall();
@@ -327,8 +288,7 @@ int encode( PyObject *o, Encoder *e ) {
           resizeBufferIfNeeded(e,l);
           *(e->s++) = '\"';
           doStringNoEscapes(e, key_str, key_str+l);
-          *(e->s++) = '\"';
-          *(e->s++) = ':';
+          *(e->s++) = '\"'; *(e->s++) = ':';
           if (Py_EnterRecursiveCall(" while JSONifying dict object")) return 0;
           int r = encode(item, e);
           Py_LeaveRecursiveCall();
@@ -339,15 +299,14 @@ int encode( PyObject *o, Encoder *e ) {
         else if (PyLong_Check(key)) {
           *(e->s++) = '"';
           encode(key, e);
-          *(e->s++) = '"';
-          *(e->s++) = ':';
+          *(e->s++) = '"'; *(e->s++) = ':';
           if (Py_EnterRecursiveCall(" while JSONifying dict object")) return 0;
           int r = encode(item, e);
           Py_LeaveRecursiveCall();
           if (!r) return 0;
           *(e->s++) = ',';
         }
-        //else if (!e->skipKeys) {
+        //else if (!e->skip_keys) {
           //PyErr_SetString(PyExc_TypeError, "keys must be strings or numbers unless skipkeys is true");
         else {
           PyErr_SetString(PyExc_TypeError, "keys must be strings or numbers");
@@ -356,10 +315,31 @@ int encode( PyObject *o, Encoder *e ) {
       }
     }
     if ( pos == 0 ) {
-      *(e->s++) = '}'; // empty 
+      *(e->s++) = '}'; // empty dict
     } else {
       *((e->s)-1) = '}'; // overwriting last comma 
     }
+  }
+  else if ( PyFloat_Check(o) ) {
+    double d = PyFloat_AsDouble(o);
+    if (d == -1.0 && PyErr_Occurred()) return 0;
+    if (IS_NAN(d)) {
+      *((unsigned int*)e->s) = CHAR4_INT('N','a','N',0); e->s += 3;
+    }
+    else if ( IS_INF(d) ) {
+      if ( d < 0 ) {
+        *(e->s++) = '-';
+        *((unsigned long*)e->s) = CHAR8_LONG('I','n','f','i','n','i','t','y'); e->s += 8;
+      } else {
+        *((unsigned long*)e->s) = CHAR8_LONG('I','n','f','i','n','i','t','y'); e->s += 8;
+        //memcpy( e->s, "Infinity", 8 ); e->s += 8; 
+      }
+    } else {
+      e->s = dtoa(d, e->s, 324);
+    }
+  }
+  else if ( o == Py_None ) {
+    memcpy( e->s, "null", 4 ); e->s += 4;
   }
   else {
 
@@ -428,44 +408,37 @@ int do_encode(PyObject *o, Encoder *enc ) {
   enc->end   = s + len;
   enc->s = s;
   return encode (o, enc);
-
 }
 
-
-PyObject* toJson(PyObject* self, PyObject *args, PyObject *kwargs) {
+PyObject* dumps(PyObject* self, PyObject *args, PyObject *kwargs) {
   static char *kwlist[] = { "obj", "ensure_ascii", "sort_keys", "indent", "skipkeys", "output_bytes", NULL };
 
-  PyObject *oinput = NULL;
-  PyObject *oensureAscii = NULL;
-  //PyObject *oencodeHTMLChars = NULL;
-  //PyObject *oescapeForwardSlashes = NULL;
-  PyObject *osortKeys = NULL;
-  PyObject* oindent = NULL;
-  PyObject* oskipkeys = NULL;
-  PyObject* obytes = NULL;
+  PyObject *o = NULL;
+  PyObject *ensure_ascii = NULL;
+  PyObject *sort_keys = NULL;
+  PyObject *indent = NULL;
+  PyObject *skip_keys = NULL;
+  PyObject *bytes = NULL;
 
   Encoder enc = { NULL,NULL,NULL,0,0,0,0,0 };
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOO", kwlist, &oinput, &oensureAscii, &osortKeys, &oindent, &oskipkeys, &obytes)) return NULL;
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOO", kwlist, &o, &ensure_ascii, &sort_keys, &indent, &skip_keys, &bytes)) return NULL;
 
-  if (oensureAscii != NULL && !PyObject_IsTrue(oensureAscii)) enc.ensure_ascii = 0;
-  if (osortKeys != NULL && PyObject_IsTrue(osortKeys)) enc.sortKeys = 1;
-  if (oskipkeys != NULL && PyObject_IsTrue(oskipkeys)) enc.skipKeys = 1;
-  if (oindent == NULL ) {
+  if (ensure_ascii != NULL && !PyObject_IsTrue(ensure_ascii)) enc.ensure_ascii = 0;
+  if (sort_keys    != NULL &&  PyObject_IsTrue(sort_keys   )) enc.sort_keys = 1;
+  if (skip_keys    != NULL &&  PyObject_IsTrue(skip_keys   )) enc.skip_keys = 1;
+  if (indent == NULL ) {
     enc.indent = -1;
   } else {
-    enc.indent = PyLong_AsLong(oindent);
+    enc.indent = PyLong_AsLong(indent);
   }
 
-  //if (oencodeHTMLChars != NULL && PyObject_IsTrue(oencodeHTMLChars)) encoder.encodeHTMLChars = 1;
-  //if (oescapeForwardSlashes != NULL && !PyObject_IsTrue(oescapeForwardSlashes)) encoder.escapeForwardSlashes = 0;
-
-  int r = do_encode( oinput, &enc );
+  int r = do_encode( o, &enc );
  
   if ( r != 0 ) {
     *enc.s = '\0';
     PyObject *ret;
-    if ( obytes != NULL ) { //PyObject_IsTrue(obytes) ) {
+    if ( bytes != NULL ) { 
       ret = PyBytes_FromStringAndSize(enc.start, enc.s-enc.start);
     } else {
       ret = PyUnicode_FromStringAndSize(enc.start, enc.s-enc.start);
@@ -477,62 +450,40 @@ PyObject* toJson(PyObject* self, PyObject *args, PyObject *kwargs) {
   return NULL;
 }
 
-PyObject* toJsonBytes(PyObject* self, PyObject *args, PyObject *kwargs) {
+PyObject* dumpb(PyObject* self, PyObject *args, PyObject *kwargs) {
   if (kwargs == NULL) kwargs = PyDict_New();
   PyDict_SetItemString( kwargs, "output_bytes", Py_True );
-  return toJson( self, args, kwargs );
+  return dumps( self, args, kwargs );
 }
 
-PyObject* toJsonFile(PyObject* self, PyObject *args, PyObject *kwargs)
+PyObject* dump(PyObject* self, PyObject *args, PyObject *kwargs)
 {
   PyObject *o, *file, *string, *write, *argtuple;
 
   if (!PyArg_ParseTuple (args, "OO", &o, &file)) return NULL; 
 
-  if (!PyObject_HasAttrString (file, "write"))
-  { 
-    PyErr_Format (PyExc_TypeError, "expected file");
-    return NULL;
-  }
+  if (!PyObject_HasAttrString (file, "write")) { PyErr_Format (PyExc_TypeError, "expected file"); return NULL; }
 
   write = PyObject_GetAttrString (file, "write");
 
-  if (!PyCallable_Check (write))
-  {
-    Py_XDECREF(write);
-    PyErr_Format (PyExc_TypeError, "expected file");
-    return NULL;
-  }
+  if (!PyCallable_Check (write)) { Py_XDECREF(write); PyErr_Format (PyExc_TypeError, "expected file"); return NULL; }
 
   argtuple = PyTuple_Pack(1, o);
 
-  string = toJson(self, argtuple, kwargs);
+  string = dumps(self, argtuple, kwargs);
 
-  if (string == NULL)
-  { 
-    Py_XDECREF(write);
-    Py_XDECREF(argtuple);
-    return NULL;
-  }
+  if (string == NULL) { Py_DECREF(write); Py_XDECREF(argtuple); return NULL; }
 
   Py_XDECREF(argtuple);
 
   argtuple = PyTuple_Pack (1, string);
-  if (argtuple == NULL)
-  {
-    Py_XDECREF(write);
-    return NULL;
-  }
-  if (PyObject_CallObject (write, argtuple) == NULL)
-  {
-    Py_XDECREF(write);
-    Py_XDECREF(argtuple);
-    return NULL;
-  }
+  if (argtuple == NULL) { Py_DECREF(write); return NULL; }
 
-  Py_XDECREF(write);
+  if (PyObject_CallObject (write, argtuple) == NULL) { Py_DECREF(write); Py_XDECREF(argtuple); return NULL; }
+
+  Py_DECREF(write);
   Py_DECREF(argtuple);
-  Py_XDECREF(string);
+  Py_DECREF(string);
 
   Py_RETURN_NONE;
 }
