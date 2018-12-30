@@ -1,3 +1,5 @@
+environment:
+  CIBW_BUILD: cp3?-*
 
 test_script:
   - "build.cmd %PYTHON%\\python.exe setup.py test"
