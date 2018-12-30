@@ -1,0 +1,11 @@
+
+test_script:
+  - "build.cmd %PYTHON%\\python.exe setup.py test"
+
+build_script:
+  - pip install cibuildwheel==0.10.0
+  - cibuildwheel --output-dir wheelhouse
+
+artifacts:
+  - path: "wheelhouse\\*.whl"
+    name: Wheels

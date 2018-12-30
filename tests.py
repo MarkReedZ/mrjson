@@ -9,18 +9,22 @@ def raises( o, f, exc,details ):
     f(o)
     if len(o) > 100: o = o[:100]
     print("ERROR ", o, " didn't raise exception")
+    assert False
   except Exception as e:
     if len(o) > 100: o = o[:100]
     if type(e) != exc:
       print("ERROR",o," rose wrong exception",type(e),e)
+      assert False
     if str(e) != details:
       print("ERROR",o," rose wrong exception details actual vs expected:\n",e,"\n",details)
+      assert False
 
 def eq( a, b ):
   if a != b:
     cf = inspect.currentframe()
     print( "ERROR Line", cf.f_back.f_lineno, a, "!=", b )
-    return -1
+    #return -1
+    assert False
   return 0
 
 
@@ -84,6 +88,7 @@ for o in objs:
     eq( o, j.loads(j.dumps(o)) )
   except Exception as e:
     print( "ERROR",str(e), o )
+    assert False
 
 
 print("Testing Exceptions..")
@@ -122,6 +127,7 @@ for o in objs:
     eq( o, j.loadb(j.dumpb(o)) )
   except Exception as e:
     print( "ERROR Unexpected exception: ",str(e), "on object ", o, "json bytes",j.dumpb(o) )
+    assert False
 
 
 eq( j.dumpb(1), b'1' )
@@ -144,15 +150,20 @@ for (dirpath, dirnames, filenames) in walk("test_data"):
     except Exception as e:
       if fn[0] != 'n':
         print( "ERROR",str(e), fn )
+        assert False
       continue
+    finally:
+      f.close()
 
     try:
       eq( o, j.loads(j.dumps(o)) )
       if fn[0] == 'n':
         print( "ERROR Should have thrown an exception:", fn )
+        assert False
     except Exception as e:
       if fn[0] != 'n':
         print( "ERROR",str(e), o, fn )
+        assert False
 
 
 print("Done")

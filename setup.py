@@ -67,6 +67,7 @@ setup(
     platforms=['any'],
     url="https://github.com/MarkReedZ/mrjson",
     cmdclass = {'build_ext': build_ext, 'build_clib': build_clib_without_warnings},
+    test_suite = 'nose.collector',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',

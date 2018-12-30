@@ -4,3 +4,6 @@
 dist/
 build/
 *egg*
+__pycache__
+todo
+tst.py
