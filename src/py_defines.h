@@ -1,5 +1,9 @@
 #include <Python.h>
 
+#if defined(_MSC_VER)
+#define inline __inline
+#endif
+
 #if PY_MAJOR_VERSION >= 3
 
 #define PyInt_Check             PyLong_Check
