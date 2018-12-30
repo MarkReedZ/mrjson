@@ -6,7 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <stdint.h>
-#include <inttypes.h>
+//#include <inttypes.h>
 #include "itoa.h"
 #include "dtoa.h"
 #include "diyfp.h"
