@@ -380,6 +380,8 @@ PyObject* jParse(char *s, char **endptr, size_t len) {
   *endptr = s;
   PyObject *o = NULL;
   char tmpmsg[128] = "Unexpected escape character 'Z' at pos ";
+  char *it;
+  int i;
 
   unsigned long *quoteBitMap    = (unsigned long *) malloc( (len/64+2) * sizeof(unsigned long) );
   unsigned long *nonAsciiBitMap = (unsigned long *) malloc( (len/64+2) * sizeof(unsigned long) );
@@ -569,7 +571,7 @@ PyObject* jParse(char *s, char **endptr, size_t len) {
         }
         o = NULL;
         string_start = s;
-        for (char *it = s; *s; ++it, ++s) {
+        for (it = s; *s; ++it, ++s) {
             int c = *it = *s;
             if (c == '\\') {
                 c = *++s;
@@ -608,7 +610,7 @@ PyObject* jParse(char *s, char **endptr, size_t len) {
                       s += 10;
                       break;
                     }
-                    for (int i = 0; i < 4; ++i) {
+                    for (i = 0; i < 4; ++i) {
                         if (_isxdigit(*++s)) {
                             c = c * 16 + char2int(*s);
                         } else {
