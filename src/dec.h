@@ -1,6 +1,10 @@
 #pragma once
 
-#include <stdint.h>
+#if defined(_MSC_VER)
+#define inline __inline
+//#else
+//#include <stdint.h>
+#endif
 #include <stddef.h>
 #include <assert.h>
 #include "Python.h"

@@ -34,17 +34,25 @@ static PyObject* parseNumber(char *s, char **outptr) {
   bool flt = false;
   char *st = s;
   char ch = *s;
-  if (ch == '-') ++s;
-
-  long l = 0;
+  int64_t l = 0;
   double d;
   int cnt = 16;
-  while (_isdigit(*s) && (--cnt != 0)) l = (l * 10) + (*s++ - '0');
+  long frac = 0;
+  long prec = 1;
+  int neg = 0;
+  unsigned int exponent = 0;
+  PyObject *ret;
+
+  if (ch == '-') ++s;
+
+  while (_isdigit(*s) && (--cnt != 0)) {
+    l = (l * 10) + (*s++ - '0');
+  }
 
   // We're done unless its a float, exponent, or is too big: 1.2, 10e5, or more than 16 digits
   if ( cnt != 0 && *s != '.' && *s != 'e' && *s != 'E' ) {
     *outptr = s;
-    return PyLong_FromLong(ch == '-' ? -l : l);
+    return PyLong_FromLongLong(ch == '-' ? -l : l);
   }
 
   d = (double) l;
@@ -53,8 +61,6 @@ static PyObject* parseNumber(char *s, char **outptr) {
   if (*s == '.') {
     flt = true;
     ++s;
-    long frac = 0;
-    long prec = 1;
     while (_isdigit(*s)) {
       frac =  (frac*10) + (*s++-'0');
       prec *= 10;
@@ -66,35 +72,37 @@ static PyObject* parseNumber(char *s, char **outptr) {
     flt = true;
     ++s;
 
-    bool neg = false;
     if (*s == '+')
       ++s;
     else if (*s == '-') {
       ++s;
-      neg = true;
+      neg = 1;
     }
 
-    unsigned int exponent = 0;
     while (_isdigit(*s)) exponent = (exponent * 10) + (*s++ - '0');
 
     if ( neg ) {
-
-      if ( exponent & ~0x1FF ) { *outptr = s; return PyFloat_FromDouble( 0 ); } // 1e-512 is 0
-  
       double power = 1.0;
       static double btab[9] = { 0.1, 0.01, 0.0001, 1e-8, 1e-16, 1e-32, 1e-64, 1e-128, 1e-256 };
       int num = 0;
+
+      if ( exponent & ~0x1FF ) { *outptr = s; return PyFloat_FromDouble( 0 ); } // 1e-512 is 0
+  
       for (; exponent; exponent >>= 1, num += 1 )
         if (exponent & 1) power *= btab[num];
       d *= power;
 
     } else {
-    
-      if ( exponent & ~0x1FF ) { *outptr = s; return PyFloat_FromDouble( INFINITY ); } // 1e512 is infinity?
-  
       double power = 1.0;
       static double btab[9] = { 10.0, 100.0, 10000.0, 1e8, 1e16, 1e32, 1e64, 1e128, 1e256 };
       int num = 0;
+   
+#if __STDC_VERSION__ >= 199901L 
+      if ( exponent & ~0x1FF ) { *outptr = s; return PyFloat_FromDouble( INFINITY ); } // 1e512 is infinity?
+#else
+      if ( exponent & ~0x1FF ) { *outptr = s; return PyFloat_FromDouble( HUGE_VAL ); } // 1e512 is infinity?
+#endif
+  
       for (; exponent; exponent >>= 1, num += 1 )
         if (exponent & 1) power *= btab[num];
       d *= power;
@@ -107,19 +115,31 @@ static PyObject* parseNumber(char *s, char **outptr) {
   else {
     ch = *s;
     *s = 0;
-    PyObject *ret = PyLong_FromString(st, NULL, 10); 
+    ret = PyLong_FromString(st, NULL, 10); 
     *s = ch;
     return ret;
   }
 }
 
 #ifdef __AVX2__
+//#ifdef _MSC_VER
+//// Gets the first non zero bit
+//static unsigned long TZCNT(unsigned long long inp) {
+  //unsigned long res;
+  //__asm{
+    //tzcnt rax, inp
+    //mov res, rax
+  //}
+  //return res;
+//}
+//#else
 // Gets the first non zero bit
 static unsigned long TZCNT(unsigned long long in) {
   unsigned long res;
   asm("tzcnt %1, %0\n\t" : "=r"(res) : "r"(in));
   return res;
 }
+//#endif
 #endif
 
 static PyObject* SetError(const char *message)
@@ -146,8 +166,13 @@ PyObject* jsonParse(char *s, char **endptr, size_t len) {
   char *end = s+len;
   int pos = -1;
   bool separator = true;
-  *endptr = s;
   PyObject *o = NULL;
+
+  char tmpmsg[128] = "Unexpected escape character 'Z' at pos ";
+  char *it;
+  int i;
+
+  *endptr = s;
   while (*s) {
     while (_isspace(*s)) {
       ++s;
@@ -208,7 +233,7 @@ PyObject* jsonParse(char *s, char **endptr, size_t len) {
       case '"':
         o = NULL;
         string_start = s;
-        for (char *it = s; *s; ++it, ++s) {
+        for (it = s; *s; ++it, ++s) {
             int c = *it = *s;
             if (c == '\\') {
                 c = *++s;
@@ -237,17 +262,18 @@ PyObject* jsonParse(char *s, char **endptr, size_t len) {
                    c = 0;
                     // \ud8XX\udcXX
                     if ( s[1] == 'd' && s[2] == '8' ) {
+                      unsigned long tmp,wc;
                       if ( s[5] != '\\' ) return SetErrorInt("Invalid lonely surrogate \\ud800 at ", s-s_start-2);
-                      unsigned long tmp = (char2int(s[8])<<8 | char2int(s[9])<<4 | char2int(s[10])) - 0xC00;
-                      unsigned long wc = 0x10000 | char2int(s[3])<<14 | char2int(s[4])<<10 | tmp;
-                      *it++ = ( 0xf0 | (wc >> 18) );
+                      tmp = (char2int(s[8])<<8 | char2int(s[9])<<4 | char2int(s[10])) - 0xC00;
+                      wc = 0x10000 | char2int(s[3])<<14 | char2int(s[4])<<10 | tmp;
+                      *it++ = ( 0xf0 | ((wc >> 18)&0xF) );
                       *it++ = ( 0x80 | ((wc >> 12) & 0x3f) );
                       *it++ = ( 0x80 | ((wc >> 6) & 0x3f) );
                       *it   = ( 0x80 | (wc & 0x3f) );
                       s += 10;
                       break;
                     }
-                    for (int i = 0; i < 4; ++i) {
+                    for (i = 0; i < 4; ++i) {
                         if (_isxdigit(*++s)) {
                             c = c * 16 + char2int(*s);
                         } else {
@@ -269,7 +295,6 @@ PyObject* jsonParse(char *s, char **endptr, size_t len) {
 
                 default:
                     *endptr = s;
-                    char tmpmsg[128] = "Unexpected escape character 'Z' at pos ";
                     tmpmsg[29] = c;
                     return SetErrorInt(tmpmsg, s-s_start-1);
                 }
@@ -307,7 +332,7 @@ PyObject* jsonParse(char *s, char **endptr, size_t len) {
         s += 2;
         break;
       case 'I': // Infinity
-        if (!(s[0] == 'n' && s[1] == 'f' && ((end-s)==7 || _isdelim(s[7])))) return SetErrorInt("Expecting 'Inf' at pos ",s-s_start-1);
+        if (!(s[0] == 'n' && s[1] == 'f' && ((end-s)==7 || _isdelim(s[7])))) return SetErrorInt("Expecting 'Infinity' at pos ",s-s_start-1);
         o = PyFloat_FromDouble(Py_HUGE_VAL);
         s += 7;
         break;
@@ -354,6 +379,7 @@ PyObject* jParse(char *s, char **endptr, size_t len) {
   char *s_start = s;
   *endptr = s;
   PyObject *o = NULL;
+  char tmpmsg[128] = "Unexpected escape character 'Z' at pos ";
 
   unsigned long *quoteBitMap    = (unsigned long *) malloc( (len/64+2) * sizeof(unsigned long) );
   unsigned long *nonAsciiBitMap = (unsigned long *) malloc( (len/64+2) * sizeof(unsigned long) );
@@ -605,7 +631,6 @@ PyObject* jParse(char *s, char **endptr, size_t len) {
                 default:
                     *endptr = s;
                     free(quoteBitMap); free(nonAsciiBitMap);
-                    char tmpmsg[128] = "Unexpected escape character 'Z' at pos ";
                     tmpmsg[29] = c;
                     return SetErrorInt(tmpmsg, s-s_start-1);
                 }
@@ -692,6 +717,7 @@ PyObject* loads(PyObject* self, PyObject *args, PyObject *kwargs)
   PyObject *ret;
   PyObject *sarg;
   PyObject *arg;
+  char *endptr;
 
   if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O", kwlist, &arg)) return NULL;
 
@@ -710,7 +736,6 @@ PyObject* loads(PyObject* self, PyObject *args, PyObject *kwargs)
     return NULL;
   }
 
-  char *endptr;
 #ifdef __AVX2__
   ret = jParse(PyString_AS_STRING(sarg), &endptr, PyString_GET_SIZE(sarg));
 #else

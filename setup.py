@@ -7,6 +7,7 @@ from distutils.sysconfig import customize_compiler
 from distutils.command.build_clib import build_clib
 from distutils.command.build_ext import build_ext
 import os.path
+import platform
 import re
 import sys, codecs
 
@@ -38,6 +39,16 @@ with codecs.open('README.md', encoding='utf-8') as f:
 with codecs.open('version.txt', encoding='utf-8') as f:
     VERSION = f.read().strip()
 
+
+link_args = ['-lstdc++', '-lm']
+compile_args = ['-D_GNU_SOURCE','-mavx2','-O3']
+if platform.system() == 'Windows':
+  compile_args = ['-D_GNU_SOURCE']
+  link_args = []
+  #compile_args = ['-D_GNU_SOURCE','/arch:AVX2']
+
+  
+
 module1 = Extension(
     'mrjson',
      sources = [
@@ -46,9 +57,10 @@ module1 = Extension(
          './src/enc.c'
      ],
      include_dirs = ['./src'],
-     extra_compile_args = ['-D_GNU_SOURCE','-mavx2','-O3'],
-     extra_link_args = ['-lstdc++', '-lm'],
-     define_macros = [('MRJSON_VERSION', VERSION)]
+     extra_compile_args = compile_args,
+     extra_link_args = link_args,
+     define_macros = [('MRJSON_VERSION', VERSION),
+                      ('_CRT_SECURE_NO_WARNINGS', 1)]
 )
 
 setup(

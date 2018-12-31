@@ -3,6 +3,12 @@
 #include <stdio.h>
 #include "dconv.h"
 
+#if defined(_MSC_VER)
+#define inline __inline
+//#else
+//#include <stdint.h>
+#endif
+
 #define IS_NAN(x) Py_IS_NAN(x)
 #define IS_INF(x) Py_IS_INFINITY(x)
 
@@ -116,8 +122,8 @@ static void doStringNoEscapes (Encoder *e, const char *str, const char *end)
    (unsigned int)((d << 24) | (c << 16) | (b << 8) | a)
 
 #define CHAR8_LONG(a, b, c, d, e, f, g, h)       \
-   (((long)h << 56) | ((long)g << 48) | ((long)f << 40)   \
-    | ((long)e << 32) | (d << 24) | (c << 16) | (b << 8) | a)
+   (((uint64_t)h << 56) | ((uint64_t)g << 48) | ((uint64_t)f << 40)   \
+    | ((uint64_t)e << 32) | (d << 24) | (c << 16) | (b << 8) | a)
 
 
 int encode( PyObject *o, Encoder *e ) {
@@ -128,7 +134,7 @@ int encode( PyObject *o, Encoder *e ) {
     memcpy( e->s, "true", 4 ); e->s += 4;
   } 
   else if ( o == Py_False ) {
-    *((unsigned long*)e->s) = CHAR8_LONG('f','a','l','s','e',0,0,0); e->s += 5;
+    *((uint64_t*)e->s) = CHAR8_LONG('f','a','l','s','e',0,0,0); e->s += 5;
     //memcpy( e->s, "false", 5 ); e->s += 5;
   }
   else if ( PyLong_Check(o) ) {
@@ -157,23 +163,28 @@ int encode( PyObject *o, Encoder *e ) {
 #if PY_MAJOR_VERSION < 3
   else if ( PyInt_Check(o) ) {
     char *s = e->s;
-    int overflow;
-    long i = PyInt_AS_LONG(o);
-    do *s++ = (char)(48 + (i % 10ULL)); while(i /= 10ULL);
-    if (i < 0) *s++ = '-';
+    //int overflow;
+    long long i = PyInt_AS_LONG(o);
+    if ( i >= 0 ) {
+      do *s++ = (char)(48 + (i % 10ULL)); while(i /= 10ULL); 
+    } else {
+      i *= -1;
+      do *s++ = (char)(48 + (i % 10ll)); while(i /= 10ll); 
+      *s++ = '-';
+    }
     reverse( e->s, s-1 );
     e->s += s - e->s;
   }
 #endif
   else if (PyUnicode_Check(o)) {
-    *(e->s++) = '\"';
     Py_ssize_t l;
 #if PY_MAJOR_VERSION >= 3
     const char* s = PyUnicode_AsUTF8AndSize(o, &l);
 #else
-    const char* s = PyUnicode_AsUTF8String(o);
+    const char* s = PyString_AsString( PyUnicode_AsUTF8String(o) );
     l = PyUnicode_GET_SIZE(o);
 #endif
+    *(e->s++) = '\"';
     if (s == NULL) return 0; //ERR
     if ( l <= 0 || l > UINT_MAX ) {
       if ( l != 0 ) {
@@ -188,9 +199,9 @@ int encode( PyObject *o, Encoder *e ) {
   }
 #if PY_MAJOR_VERSION < 3
   else if (PyString_Check(o)) {
-    *(e->s++) = '\"';
     Py_ssize_t l;
     const char* s = PyString_AS_STRING(o);
+    *(e->s++) = '\"';
     l = PyString_GET_SIZE(o);
     if (s == NULL) return 0; //ERR
     if ( l <= 0 || l > UINT_MAX ) {
@@ -206,16 +217,19 @@ int encode( PyObject *o, Encoder *e ) {
   }
 #endif
   else if (PyList_Check(o)) {
-    *(e->s++) = '[';
     Py_ssize_t size = PyList_GET_SIZE(o);
+    *(e->s++) = '[';
     if ( size == 0 ) {
       *(e->s++) = ']';
     } else {
+      Py_ssize_t i;
       e->depth += 1;
-      for (Py_ssize_t i = 0; i < size; i++) {
+      for (i = 0; i < size; i++) {
+        PyObject* item;
+        int r;
         if (Py_EnterRecursiveCall(" while JSONifying list object")) return 0;
-        PyObject* item = PyList_GET_ITEM(o, i);
-        int r = encode(item, e);
+        item = PyList_GET_ITEM(o, i);
+        r = encode(item, e);
         Py_LeaveRecursiveCall();
         *(e->s++) = ',';
         if (!r) return 0;
@@ -225,16 +239,19 @@ int encode( PyObject *o, Encoder *e ) {
     }
   }
   else if (PyTuple_Check(o)) {
-    *(e->s++) = '[';
     Py_ssize_t size = PyTuple_GET_SIZE(o);
+    *(e->s++) = '[';
     if ( size == 0 ) {
       *(e->s++) = ']';
     } else {
+      Py_ssize_t i;
       e->depth += 1;
-      for (Py_ssize_t i = 0; i < size; i++) {
+      for (i = 0; i < size; i++) {
+        PyObject* item;
+        int r;
         if (Py_EnterRecursiveCall(" while JSONifying list object")) return 0;
-        PyObject* item = PyTuple_GET_ITEM(o, i);
-        int r = encode(item, e);
+        item = PyTuple_GET_ITEM(o, i);
+        r = encode(item, e);
         Py_LeaveRecursiveCall();
         *(e->s++) = ',';
         if (!r) return 0;
@@ -244,20 +261,27 @@ int encode( PyObject *o, Encoder *e ) {
     }
   }
   else if (PyDict_Check(o)) {
-    *(e->s++) = '{';
 
-    Py_ssize_t pos = 0;
     PyObject* key;
     PyObject* item;
-
+    Py_ssize_t pos = 0;
+#if PY_MAJOR_VERSION < 3
+    int empty = 1;
+#endif
+    *(e->s++) = '{';
     if (1) { //!e->sort_keys) {
       while (PyDict_Next(o, &pos, &key, &item)) {
+#if PY_MAJOR_VERSION < 3
+        empty = 0;
+#endif
         if (PyUnicode_Check(key)) {
+          int r;
           Py_ssize_t l;
 #if PY_MAJOR_VERSION >= 3
           const char* key_str = PyUnicode_AsUTF8AndSize(key, &l);
 #else
-          const char* key_str = PyUnicode_AsUTF8String(key);
+          const char* key_str = PyString_AsString( PyUnicode_AsUTF8String(key) );
+          //const char* key_str = PyUnicode_AsUTF8String(key);
           l = PyUnicode_GET_SIZE(key);
 #endif
           if (key_str == NULL) return 0;
@@ -270,13 +294,14 @@ int encode( PyObject *o, Encoder *e ) {
           doStringNoEscapes(e, key_str, key_str+l);
           *(e->s++) = '\"'; *(e->s++) = ':';
           if (Py_EnterRecursiveCall(" while JSONifying dict object")) return 0;
-          int r = encode(item, e);
+          r = encode(item, e);
           Py_LeaveRecursiveCall();
           if (!r) return 0;
           *(e->s++) = ',';
         }
 #if PY_MAJOR_VERSION < 3
         else if (PyString_Check(key)) {
+          int r;
           Py_ssize_t l;
           const char* key_str = PyString_AS_STRING(key);
           l = PyString_GET_SIZE(key);
@@ -290,18 +315,23 @@ int encode( PyObject *o, Encoder *e ) {
           doStringNoEscapes(e, key_str, key_str+l);
           *(e->s++) = '\"'; *(e->s++) = ':';
           if (Py_EnterRecursiveCall(" while JSONifying dict object")) return 0;
-          int r = encode(item, e);
+          r = encode(item, e);
           Py_LeaveRecursiveCall();
           if (!r) return 0;
           *(e->s++) = ',';
         }
 #endif
+#if PY_MAJOR_VERSION < 3
+        else if (PyLong_Check(key) || PyInt_Check(key)) {
+#else
         else if (PyLong_Check(key)) {
+#endif
+          int r;
           *(e->s++) = '"';
           encode(key, e);
           *(e->s++) = '"'; *(e->s++) = ':';
           if (Py_EnterRecursiveCall(" while JSONifying dict object")) return 0;
-          int r = encode(item, e);
+          r = encode(item, e);
           Py_LeaveRecursiveCall();
           if (!r) return 0;
           *(e->s++) = ',';
@@ -314,7 +344,11 @@ int encode( PyObject *o, Encoder *e ) {
         }
       }
     }
+#if PY_MAJOR_VERSION < 3
+    if ( empty ) {
+#else
     if ( pos == 0 ) {
+#endif
       *(e->s++) = '}'; // empty dict
     } else {
       *((e->s)-1) = '}'; // overwriting last comma 
@@ -329,9 +363,9 @@ int encode( PyObject *o, Encoder *e ) {
     else if ( IS_INF(d) ) {
       if ( d < 0 ) {
         *(e->s++) = '-';
-        *((unsigned long*)e->s) = CHAR8_LONG('I','n','f','i','n','i','t','y'); e->s += 8;
+        *((uint64_t*)e->s) = CHAR8_LONG('I','n','f','i','n','i','t','y'); e->s += 8;
       } else {
-        *((unsigned long*)e->s) = CHAR8_LONG('I','n','f','i','n','i','t','y'); e->s += 8;
+        *((uint64_t*)e->s) = CHAR8_LONG('I','n','f','i','n','i','t','y'); e->s += 8;
         //memcpy( e->s, "Infinity", 8 ); e->s += 8; 
       }
     } else {
@@ -367,17 +401,25 @@ int encode( PyObject *o, Encoder *e ) {
         return 0;
       }
 
+      {
       Py_ssize_t l;
 #if PY_MAJOR_VERSION >= 3
       const char* p = PyUnicode_AsUTF8AndSize(res, &l);
 #else
-      const char* p = PyUnicode_AsUTF8String(res);
+      //const char* p = PyUnicode_AsUTF8String(res);
+      const char* p;
+      if ( PyUnicode_Check(res) ) {
+        p = PyString_AsString( PyUnicode_AsUTF8String(res) );
+      } else {
+        p = PyString_AsString( res );
+      }
       l = PyUnicode_GET_SIZE(res);
 #endif
       if (p == NULL) return 0; //TODO ERR
 
       memcpy(e->s, p, l);
       e->s += l;
+      }
   
     } else {
 
@@ -412,6 +454,7 @@ int do_encode(PyObject *o, Encoder *enc ) {
 
 PyObject* dumps(PyObject* self, PyObject *args, PyObject *kwargs) {
   static char *kwlist[] = { "obj", "ensure_ascii", "sort_keys", "indent", "skipkeys", "output_bytes", NULL };
+  int r;
 
   PyObject *o = NULL;
   PyObject *ensure_ascii = NULL;
@@ -433,11 +476,11 @@ PyObject* dumps(PyObject* self, PyObject *args, PyObject *kwargs) {
     enc.indent = PyLong_AsLong(indent);
   }
 
-  int r = do_encode( o, &enc );
+  r = do_encode( o, &enc );
  
   if ( r != 0 ) {
-    *enc.s = '\0';
     PyObject *ret;
+    *enc.s = '\0';
     if ( bytes != NULL ) { 
       ret = PyBytes_FromStringAndSize(enc.start, enc.s-enc.start);
     } else {
