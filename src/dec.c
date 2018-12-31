@@ -388,7 +388,7 @@ PyObject* jParse(char *s, char **endptr, size_t len) {
 
   __m256i b0, b1, b2, b3;
   unsigned char tmpbuf[32];
-  int i, bmidx=0;
+  int bmidx=0;
   int dist;
   char *ostart = s;
   char *buf = s;
