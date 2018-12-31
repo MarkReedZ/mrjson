@@ -15,10 +15,10 @@ env:
     - TWINE_USERNAME=MarkReedZ
 
 script:
-  - $PIP install cibuildwheel==0.7.1
+  - $PIP install cibuildwheel==0.10.0
   - cibuildwheel --output-dir wheelhouse
-  - |
-    if [[ $TRAVIS_TAG ]]; then
-      python -m pip install twine
-      python -m twine upload wheelhouse/*.whl
-    fi
+  #- |
+    #if [[ $TRAVIS_TAG ]]; then
+      #python -m pip install twine
+      #python -m twine upload wheelhouse/*.whl
+    #fi
