@@ -5,19 +5,19 @@
 
 #if defined(_MSC_VER)
 
-#if __WORDSIZE == 64
-# ifndef __intptr_t_defined
-typedef long int                intptr_t;
-#  define __intptr_t_defined
-# endif
-typedef unsigned long int        uintptr_t;
-#else
-# ifndef __intptr_t_defined
-typedef int                        intptr_t;
-#  define __intptr_t_defined
-# endif
-typedef unsigned int                uintptr_t;
-#endif
+//#if __WORDSIZE == 64
+//# ifndef __intptr_t_defined
+//typedef long int                intptr_t;
+//#  define __intptr_t_defined
+//# endif
+//typedef unsigned long int        uintptr_t;
+//#else
+//# ifndef __intptr_t_defined
+//typedef int                        intptr_t;
+//#  define __intptr_t_defined
+//# endif
+//typedef unsigned int                uintptr_t;
+//#endif
 
 #if __WORDSIZE == 64
 typedef long int                intmax_t;
