@@ -159,8 +159,8 @@ static PyObject* SetErrorInt(const char *message, int pos)
 
 PyObject* jsonParse(char *s, char **endptr, size_t len) {
   PyObject* tails[JSON_MAX_DEPTH];
-  JsonTag tags[JSON_MAX_DEPTH];
-  PyObject* keys[JSON_MAX_DEPTH];
+  JsonTag    tags[JSON_MAX_DEPTH];
+  PyObject*  keys[JSON_MAX_DEPTH];
   char *string_start;
   char *s_start = s;
   char *end = s+len;
@@ -371,8 +371,8 @@ PyObject* jsonParse(char *s, char **endptr, size_t len) {
 #ifdef __AVX2__
 PyObject* jParse(char *s, char **endptr, size_t len) {
   PyObject* tails[JSON_MAX_DEPTH];
-  JsonTag tags[JSON_MAX_DEPTH];
-  PyObject* keys[JSON_MAX_DEPTH];
+  JsonTag    tags[JSON_MAX_DEPTH];
+  PyObject*  keys[JSON_MAX_DEPTH];
   char *string_start;
   int pos = -1;
   bool separator = true;
@@ -382,6 +382,11 @@ PyObject* jParse(char *s, char **endptr, size_t len) {
   char tmpmsg[128] = "Unexpected escape character 'Z' at pos ";
   char *it;
   int i;
+
+  // This function uses the AVX2 instructions to scan the entire json string creating a bitmap 
+  // which shows which byte is a quote " (0x22) or between 0 and 0x5C (non ascii)
+  // This allows us to pull quoted strings out without scanning forward from the first ".  We 
+  // just find the next bit set in the bitmap and have our string length. 
 
   unsigned long *quoteBitMap    = (unsigned long *) malloc( (len/64+2) * sizeof(unsigned long) );
   unsigned long *nonAsciiBitMap = (unsigned long *) malloc( (len/64+2) * sizeof(unsigned long) );
@@ -542,7 +547,7 @@ PyObject* jParse(char *s, char **endptr, size_t len) {
         bmOff = off/64;
         tz = 64;
         slen = 0;
-        while ( 1 ) { // TODO FIX infinite loop
+        while ( 1 ) { // TODO no closing "?
           qbm    = quoteBitMap[ bmOff ];
           skipbm = nonAsciiBitMap[ bmOff ];
           qbm >>= shft;
