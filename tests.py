@@ -95,7 +95,7 @@ for o in objs:
 
 print("Testing Exceptions..")
 raises( u"NaNd",         j.loads, ValueError, "Expecting 'NaN' at pos 0" )
-raises( '"',            j.loads, ValueError, "Unterminated string starting at 0")
+raises( '"',            j.loads, ValueError, "nterminated string starting at 0")
 raises( "[",            j.loads, ValueError,  "Unexpected end of json string - could be a bad utf-8 encoding or check your [,{,\"")
 raises( "]",            j.loads, ValueError, "Closing bracket ']' without an opening bracket at pos 0" )
 raises( "{",            j.loads, ValueError,  "Unexpected end of json string - could be a bad utf-8 encoding or check your [,{,\"")
