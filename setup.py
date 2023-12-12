@@ -75,7 +75,7 @@ setup(
     ext_modules = [module1],
     author="Mark Reed",
     author_email="mark@untilfluent.com",
-    download_url="https://github.com/MarkReedZ/mrjson/archive/v1.0.4.tar.gz",
+    download_url="https://github.com/MarkReedZ/mrjson/archive/v1.4.tar.gz",
     platforms=['any'],
     url="https://github.com/MarkReedZ/mrjson",
     cmdclass = {'build_ext': build_ext, 'build_clib': build_clib_without_warnings},
