@@ -6,6 +6,7 @@ pip install simplejson
 pip install ujson
 pip install python-rapidjson
 pip install mrpacker
+pip install pysimdjson
 """
 
 setup = u'''
@@ -17,7 +18,7 @@ f.close()
 obj = json.loads(s)
 packed = mrpacker.pack(obj)
 '''
-mods = ["json", "simplejson", "rapidjson", "ujson", "mrjson"]
+mods = ["json", "simplejson", "rapidjson", "ujson", "mrjson", "simdjson"]
 tsts = ["str128.json", "canada.json", "twit.json", "twitter.json", "citm_catalog.json"]
 
 for tst in tsts:
